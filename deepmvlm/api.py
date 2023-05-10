@@ -1,3 +1,4 @@
+import time
 import torch
 import model.model as module_arch
 from utils3d import Utils3D
@@ -170,11 +171,21 @@ class DeepMVLM:
         return device, model
 
     def predict_one_file(self, file_name):
+        s = time.time()
         render_3d = Render3D(self.config)
+        print('Time to initialise render3d: ', time.time() - s)
+        
+        s = time.time()
         image_stack, transform_stack = render_3d.render_3d_file(file_name)
-
+        print('Time to render 3d file: ', time.time() - s)
+       
+        s = time.time()
         predict_2d = Predict2D(self.config, self.model, self.device)
+        print('Time to initialise predict2d: ', time.time() - s)
+        
+        s = time.time()
         heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)
+        print('Time to predict heatmaps: ', time.time() - s)
 
         u3d = Utils3D(self.config)
         u3d.heatmap_maxima = heatmap_maxima

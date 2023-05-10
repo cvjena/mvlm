@@ -8,6 +8,7 @@ from vtk.util.numpy_support import vtk_to_numpy
 import os
 
 from utils3d import Utils3D
+from tqdm import tqdm
 
 
 def no_transform():
@@ -89,14 +90,13 @@ class Render3D:
         return t
 
     def render_3d_obj_rgb(self, transform_stack, file_name):
-        write_image_files = self.config['process_3d']['write_renderings']
         off_screen_rendering = self.config['process_3d']['off_screen_rendering']
         n_views = self.config['data_loader']['args']['n_views']
         img_size = self.config['data_loader']['args']['image_size']
         win_size = img_size
 
         n_channels = 3
-        image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
+        image_stack = np.empty((n_views, win_size, win_size, n_channels), dtype=np.float32)
 
         mtl_name = os.path.splitext(file_name)[0] + '.mtl'
         obj_dir = os.path.dirname(file_name)
@@ -147,17 +147,12 @@ class Render3D:
         writer_png = vtk.vtkPNGWriter()
         writer_png.SetInputConnection(w2if.GetOutputPort())
 
-        start = time.time()
+        # start = time.time()
         # for idx in tqdm(range(n_views)):
+        times = []
         for idx in range(n_views):
-            name_rendering = self.config.temp_dir / ('rendering' + str(idx) + '_RGB.png')
-
+            start_time = time.time()
             rx, ry, rz, s, tx, ty = transform_stack[idx]
-            # rx,ry,rz,s,tx,ty = no_transform() # debug
-            # rx = -20
-            # ry = 40
-            # rz = 10
-
             t.Identity()
             t.RotateY(ry)
             t.RotateX(rx)
@@ -189,14 +184,8 @@ class Render3D:
             ren.ResetCameraClippingRange()  # This approach is not recommended when doing depth rendering
 
             ren_win.Render()
-
-            if write_image_files:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                writer_png.SetFileName(str(name_rendering))
-                writer_png.Write()
-            else:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                w2if.Update()
+            w2if.Modified()  # Needed here else only first rendering is put to file
+            w2if.Update()
 
             # add rendering to image stack
             im = w2if.GetOutput()
@@ -208,9 +197,12 @@ class Render3D:
             a = np.flipud(a)
 
             image_stack[idx, :, :, :] = a[:, :, :]
-
-        end = time.time()
-        print("Pure RGB rendering time: " + str(end - start))
+            end_time = time.time()
+            times.append(end_time - start_time)
+        
+        # end = time.time()
+        print("Pure RGB rendering time: ", np.mean(times), " seconds (times for each view: ", n_views)
+        print("Total time: ", np.mean(times) * n_views, " seconds")
 
         del obj_in
         del writer_png, w2if
@@ -258,7 +250,6 @@ class Render3D:
         return trans.GetOutput()
 
     def render_3d_multi_rgb_geometry_depth(self, transform_stack, file_name):
-        write_image_files = self.config['process_3d']['write_renderings']
         off_screen_rendering = self.config['process_3d']['off_screen_rendering']
         n_views = self.config['data_loader']['args']['n_views']
         img_size = self.config['data_loader']['args']['image_size']
@@ -266,7 +257,7 @@ class Render3D:
         slack = 5
 
         start = time.time()
-        self.logger.debug('Rendering')
+        self.logger.debug('Depth Rendering')
 
         n_channels = 5  # 3 for RGB, 1 for depth and 1 for geometry
         image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
@@ -329,8 +320,6 @@ class Render3D:
 
         w2if = vtk.vtkWindowToImageFilter()
         w2if.SetInput(ren_win)
-        writer_png = vtk.vtkPNGWriter()
-        writer_png.SetInputConnection(w2if.GetOutputPort())
 
         scale = vtk.vtkImageShiftScale()
         scale.SetOutputScalarTypeToUnsignedChar()
@@ -338,14 +327,7 @@ class Render3D:
         scale.SetShift(0)
         scale.SetScale(-255)
 
-        writer_png_2 = vtk.vtkPNGWriter()
-        writer_png_2.SetInputConnection(scale.GetOutputPort())
-
-        for view in range(n_views):
-            name_rgb = str(self.config.temp_dir / ('rendering' + str(view) + '_RGB.png'))
-            name_depth = str(self.config.temp_dir / ('rendering' + str(view) + '_zbuffer.png'))
-            name_geometry = str(self.config.temp_dir / ('rendering' + str(view) + '_geometry.png'))
-
+        for view in tqdm(range(n_views)):
             # print('Rendering ', name_rgb)
             rx, ry, rz, s, tx, ty = transform_stack[view]
 
@@ -385,13 +367,8 @@ class Render3D:
             ren.Modified()  # force actors to have the correct visibility
             ren_win.Render()
 
-            if write_image_files:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                writer_png.SetFileName(name_rgb)
-                writer_png.Write()
-            else:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                w2if.Update()
+            w2if.Modified()  # Needed here else only first rendering is put to file
+            w2if.Update()
 
             # add rendering to image stack
             im = w2if.GetOutput()
@@ -405,44 +382,34 @@ class Render3D:
             # get RGB data - 3 first channels
             image_stack[view, :, :, 0:3] = a[:, :, :]
 
-            actor_text.SetVisibility(False)
-            actor_geometry.SetVisibility(True)
-            mapper.Modified()
-            ren.Modified()  # force actors to have the correct visibility
-            ren_win.Render()
+            # actor_text.SetVisibility(False)
+            # actor_geometry.SetVisibility(True)
+            # mapper.Modified()
+            # ren.Modified()  # force actors to have the correct visibility
+            # ren_win.Render()
 
-            if write_image_files:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                writer_png.SetFileName(name_geometry)
-                writer_png.Write()
-            else:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                w2if.Update()
+            # w2if.Modified()  # Needed here else only first rendering is put to file
+            # w2if.Update()
 
-            # add rendering to image stack
-            im = w2if.GetOutput()
-            rows, cols, _ = im.GetDimensions()
-            sc = im.GetPointData().GetScalars()
-            a = vtk_to_numpy(sc)
-            components = sc.GetNumberOfComponents()
-            a = a.reshape(rows, cols, components)
-            a = np.flipud(a)
+            # # add rendering to image stack
+            # im = w2if.GetOutput()
+            # rows, cols, _ = im.GetDimensions()
+            # sc = im.GetPointData().GetScalars()
+            # a = vtk_to_numpy(sc)
+            # components = sc.GetNumberOfComponents()
+            # a = a.reshape(rows, cols, components)
+            # a = np.flipud(a)
 
-            # get geometry data
-            image_stack[view, :, :, 3:4] = a[:, :, 0:1]
+            # # get geometry data
+            # image_stack[view, :, :, 3:4] = a[:, :, 0:1]
 
             ren.Modified()  # force actors to have the correct visibility
             ren_win.Render()
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
 
-            if write_image_files:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                writer_png_2.SetFileName(name_depth)
-                writer_png_2.Write()
-            else:
-                w2if.Modified()  # Needed here else only first rendering is put to file
-                w2if.Update()
+            w2if.Modified()  # Needed here else only first rendering is put to file
+            w2if.Update()
 
             scale.Update()
             im = scale.GetOutput()
@@ -460,11 +427,6 @@ class Render3D:
             actor_text.SetVisibility(True)
             ren.Modified()
 
-        del writer_png_2, writer_png, ren_win, actor_geometry, actor_text, mapper, w2if, t, trans
-        if texture_img is not None:
-            del texture_img
-            del texture
-        # del texture_image
         end = time.time()
         self.logger.debug("File load and rendering time: " + str(end - start))
 
@@ -485,51 +447,13 @@ class Render3D:
             image_stack = image_stack / 255
         elif file_type == ".obj" and image_channels == "RGB+depth":
             transformation_stack = self.generate_3d_transformations()
-            image_stack_rgb = self.render_3d_obj_rgb(transformation_stack, file_name)
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
+            # image_stack_rgb = self.render_3d_obj_rgb(transformation_stack, file_name)
+            image_stack_full = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
             # image_stack_depth = self.render_3d_obj_depth(transformation_stack, file_name)
             n_channels = 4
             image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:3] = image_stack_rgb / 255
-            image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 4:5] / 255
-        elif (file_type in [".vtk", ".stl", ".ply", ".wrl"]) and image_channels == "RGB":
-            transformation_stack = self.generate_3d_transformations()
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
-            n_channels = 3
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
-        elif (file_type in [".vtk", ".stl", ".ply", ".wrl", ".obj"]) and image_channels == "geometry":
-            transformation_stack = self.generate_3d_transformations()
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
-            n_channels = 1
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:1] = image_stack_full[:, :, :, 3:4] / 255
-        elif (file_type in [".vtk", ".stl", ".ply", ".wrl", ".obj"]) and image_channels == "depth":
-            transformation_stack = self.generate_3d_transformations()
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
-            n_channels = 1
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:1] = image_stack_full[:, :, :, 4:5] / 255
-        elif (file_type in [".vtk", ".stl", ".ply", ".wrl"]) and image_channels == "RGB+depth":
-            transformation_stack = self.generate_3d_transformations()
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
-            n_channels = 4
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
             image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
             image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 4:5] / 255
-        elif (file_type in [".vtk", ".stl", ".ply", ".wrl", ".obj"]) and image_channels == "geometry+depth":
-            transformation_stack = self.generate_3d_transformations()
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(
-                transformation_stack, file_name)
-            n_channels = 2
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:1] = image_stack_full[:, :, :, 3:4] / 255
-            image_stack[:, :, :, 1:2] = image_stack_full[:, :, :, 4:5] / 255
         else:
             print("Can not render filetype ", file_type, " using image_channels ", image_channels)
 

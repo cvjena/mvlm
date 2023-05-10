@@ -18,8 +18,8 @@
             "heatmap_size": 256,
             "image_size": 256,
             "image_channels": "RGB",
-            "n_views": 96,
-            "batch_size": 8,
+            "n_views": 64,
+            "batch_size": 4,
             "shuffle": true,
             "validation_split": 0.1,
             "num_workers": 8
