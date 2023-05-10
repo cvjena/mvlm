@@ -224,7 +224,7 @@ class Utils3D:
 
     def compute_intersection_between_lines_ransac(self, pa, pb):
         # TODO parameters in config
-        iterations = 100
+        iterations = 10
         best_error = 100000000  # TODO should find a better initialiser
         best_p = (0, 0, 0)
         dist_thres = 10 * 10  # TODO should find a better way to esimtate dist_thres
@@ -292,7 +292,7 @@ class Utils3D:
     # Each landmark can be computed by the intersection of the view lines going trough (or near) it
     def compute_all_landmarks_from_view_lines(self):
         n_landmarks = self.heatmap_maxima.shape[0]
-        self.landmarks = np.zeros((n_landmarks, 3))
+        self.landmarks = np.empty((n_landmarks, 3))
 
         sum_error = 0
         for lm_no in range(n_landmarks):
@@ -304,11 +304,11 @@ class Utils3D:
                 pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(lm_no, pa, pb)
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
-                print('Not enough valid view lines for landmark ', lm_no)
-            else:
-                # p_intersect = self.compute_intersection_between_lines(pa, pb)
-                p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
-                sum_error = sum_error + best_error
+                raise('Not enough valid view lines for landmark ', lm_no)
+            
+            # p_intersect = self.compute_intersection_between_lines(pa, pb)
+            p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
+            sum_error = sum_error + best_error
             self.landmarks[lm_no, :] = p_intersect
         print("Ransac average error ", sum_error/n_landmarks)
 

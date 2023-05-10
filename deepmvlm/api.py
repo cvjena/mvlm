@@ -187,10 +187,18 @@ class DeepMVLM:
         u3d = Utils3D(self.config)
         u3d.heatmap_maxima = heatmap_maxima
         u3d.transformations_3d = transform_stack
+        
+        s1 = time.time()
         u3d.compute_lines_from_heatmap_maxima()
-        #  u3d.visualise_one_landmark_lines(65)
+        print('Landmarks [0] - Lines: ', time.time() - s1)
+       
+        s1 = time.time() 
         u3d.compute_all_landmarks_from_view_lines()
+        print('Landmarks [1] - All: ', time.time() - s1)
+        
+        s1 = time.time()
         u3d.project_landmarks_to_surface(file_name)
+        print('Landmarks [2] - Project: ', time.time() - s1)
         print('Time to compute landmarks: ', time.time() - s)
         
         print("Total time: ", time.time() - full_s)
