@@ -256,7 +256,6 @@ class Render3D:
         win_size = img_size
         slack = 5
 
-        start = time.time()
         self.logger.debug('Depth Rendering')
 
         n_channels = 4  # 3 for RGB, 1 for depth
@@ -400,10 +399,6 @@ class Render3D:
             # actor_geometry.SetVisibility(False)
             # actor_text.SetVisibility(True)
             ren.Modified()
-
-        end = time.time()
-        self.logger.debug("File load and rendering time: " + str(end - start))
-
         return image_stack
 
     def render_3d_file(self, file_name):

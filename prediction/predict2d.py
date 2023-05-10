@@ -198,8 +198,6 @@ class Predict2D:
         show_result_image = False
         heatmap_maxima = np.zeros((n_landmarks, n_views, 3))
 
-        print('Predicting heatmaps for all views')
-        start = time.time()
         # process the views in batch sized chunks
         cur_id = 0
         while cur_id + batch_size <= n_views:
@@ -227,6 +225,4 @@ class Predict2D:
 
             cur_id = cur_id + batch_size
 
-        end = time.time()
-        print("Model prediction time: " + str(end - start))
         return heatmap_maxima

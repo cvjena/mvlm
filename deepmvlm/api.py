@@ -172,22 +172,18 @@ class DeepMVLM:
 
     def predict_one_file(self, file_name):
         full_s = time.time()
+
         s = time.time()
         render_3d = Render3D(self.config)
-        print('Time to initialise render3d: ', time.time() - s)
-        
-        s = time.time()
         image_stack, transform_stack = render_3d.render_3d_file(file_name)
         print('Time to render 3d file: ', time.time() - s)
        
         s = time.time()
         predict_2d = Predict2D(self.config, self.model, self.device)
-        print('Time to initialise predict2d: ', time.time() - s)
-        
-        s = time.time()
         heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)
         print('Time to predict heatmaps: ', time.time() - s)
 
+        s = time.time()
         u3d = Utils3D(self.config)
         u3d.heatmap_maxima = heatmap_maxima
         u3d.transformations_3d = transform_stack
@@ -195,6 +191,7 @@ class DeepMVLM:
         #  u3d.visualise_one_landmark_lines(65)
         u3d.compute_all_landmarks_from_view_lines()
         u3d.project_landmarks_to_surface(file_name)
+        print('Time to compute landmarks: ', time.time() - s)
         
         print("Total time: ", time.time() - full_s)
 
