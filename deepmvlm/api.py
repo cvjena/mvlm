@@ -171,6 +171,7 @@ class DeepMVLM:
         return device, model
 
     def predict_one_file(self, file_name):
+        full_s = time.time()
         s = time.time()
         render_3d = Render3D(self.config)
         print('Time to initialise render3d: ', time.time() - s)
@@ -194,6 +195,8 @@ class DeepMVLM:
         #  u3d.visualise_one_landmark_lines(65)
         u3d.compute_all_landmarks_from_view_lines()
         u3d.project_landmarks_to_surface(file_name)
+        
+        print("Total time: ", time.time() - full_s)
 
         return u3d.landmarks
 

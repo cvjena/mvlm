@@ -259,8 +259,8 @@ class Render3D:
         start = time.time()
         self.logger.debug('Depth Rendering')
 
-        n_channels = 5  # 3 for RGB, 1 for depth and 1 for geometry
-        image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
+        n_channels = 4  # 3 for RGB, 1 for depth
+        image_stack = np.empty((n_views, win_size, win_size, n_channels), dtype=np.float32)
 
         pd = Utils3D.multi_read_surface(file_name)
         if pd.GetNumberOfPoints() < 1:
@@ -377,38 +377,14 @@ class Render3D:
             a = vtk_to_numpy(sc)
             components = sc.GetNumberOfComponents()
             a = a.reshape(rows, cols, components)
-            a = np.flipud(a)
 
             # get RGB data - 3 first channels
-            image_stack[view, :, :, 0:3] = a[:, :, :]
-
-            # actor_text.SetVisibility(False)
-            # actor_geometry.SetVisibility(True)
-            # mapper.Modified()
-            # ren.Modified()  # force actors to have the correct visibility
-            # ren_win.Render()
-
-            # w2if.Modified()  # Needed here else only first rendering is put to file
-            # w2if.Update()
-
-            # # add rendering to image stack
-            # im = w2if.GetOutput()
-            # rows, cols, _ = im.GetDimensions()
-            # sc = im.GetPointData().GetScalars()
-            # a = vtk_to_numpy(sc)
-            # components = sc.GetNumberOfComponents()
-            # a = a.reshape(rows, cols, components)
-            # a = np.flipud(a)
-
-            # # get geometry data
-            # image_stack[view, :, :, 3:4] = a[:, :, 0:1]
+            image_stack[view, :, :, 0:3] = np.flipud(a)
 
             ren.Modified()  # force actors to have the correct visibility
-            ren_win.Render()
+            # ren_win.Render()
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
-
-            w2if.Modified()  # Needed here else only first rendering is put to file
             w2if.Update()
 
             scale.Update()
@@ -418,13 +394,11 @@ class Render3D:
             a = vtk_to_numpy(sc)
             components = sc.GetNumberOfComponents()
             a = a.reshape(rows, cols, components)
-            a = np.flipud(a)
-
             # get depth data
-            image_stack[view, :, :, 4:5] = a[:, :, 0:1]
+            image_stack[view, :, :, 3:4] = np.flipud(a)
 
-            actor_geometry.SetVisibility(False)
-            actor_text.SetVisibility(True)
+            # actor_geometry.SetVisibility(False)
+            # actor_text.SetVisibility(True)
             ren.Modified()
 
         end = time.time()
@@ -453,7 +427,7 @@ class Render3D:
             n_channels = 4
             image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
             image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
-            image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 4:5] / 255
+            image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 3:4] / 255
         else:
             print("Can not render filetype ", file_type, " using image_channels ", image_channels)
 

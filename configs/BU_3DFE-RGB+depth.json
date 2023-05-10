@@ -18,7 +18,7 @@
             "heatmap_size": 256,
             "image_size": 256,
             "image_channels": "RGB+depth",
-            "n_views": 64,
+            "n_views": 32,
             "batch_size": 4,
             "shuffle": true,
             "validation_split": 0.1,
