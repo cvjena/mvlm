@@ -194,35 +194,26 @@ class Predict2D:
         batch_size = self.config['data_loader']['args']['batch_size']
         n_landmarks = self.config['arch']['args']['n_landmarks']
 
-        write_heatmaps = False
-        show_result_image = False
         heatmap_maxima = np.zeros((n_landmarks, n_views, 3))
 
+        # move all images to the GPU
+        image_stack_d = torch.from_numpy(image_stack)
+        image_stack_d = image_stack_d.to(self.device)
+        image_stack_d = image_stack_d.permute(0, 3, 1, 2)  # from BHWC to BCHW
+  
+        heatmaps = torch.zeros((n_views, n_landmarks, 256, 256), device=self.device)
         # process the views in batch sized chunks
         cur_id = 0
-        while cur_id + batch_size <= n_views:
-            cur_images = image_stack[cur_id:cur_id + batch_size, :, :, :]
-
-            data = torch.from_numpy(cur_images)
-            # data = torch.from_numpy(image_stack)
-            data = data.permute(0, 3, 1, 2)  # from NHWC to NCHW
-
-            with torch.no_grad():
+        with torch.no_grad():
+            while cur_id + batch_size <= n_views:
+                cur_images = image_stack_d[cur_id:cur_id + batch_size, :, :, :]
                 # print('predicting heatmaps for batch ', cur_id, ' to ', cur_id + batch_size)
-                data = data.to(self.device)
-                output = self.model(data)
-
-                if cur_id == 0 and show_result_image:
-                    image = data[0, :, :, :].cpu()
-                    heat_map = output[1, 0, :, :, :].cpu()
-                    self.show_image_and_heatmap(image, heat_map)
-
+                # data = data.to(self.device)
+                output = self.model(cur_images)
                 # output [stack (0 or 1), batch, lm, hm_size, hm_size]
-                heatmaps = output[1, :, :, :, :].cpu()
-                self.find_maxima_in_batch_of_heatmaps(heatmaps, cur_id, heatmap_maxima)
-                if write_heatmaps:
-                    self.write_batch_of_heatmaps(heatmaps, cur_images, cur_id)
-
-            cur_id = cur_id + batch_size
-
+                # heatmaps = output[1, :, :, :, :].cpu()
+                heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
+                cur_id = cur_id + batch_size
+        heatmaps = heatmaps.cpu()
+        self.find_maxima_in_batch_of_heatmaps(heatmaps, 0, heatmap_maxima)
         return heatmap_maxima
