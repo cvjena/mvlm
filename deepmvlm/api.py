@@ -58,29 +58,27 @@ class DeepMVLM:
     def __init__(self, config):
         self.config = config
         # self.device, self.model = self._get_device_and_load_model()
-        self.logger = config.get_logger('predict')
+        # self.logger = config.get_logger('predict')
         self.device, self.model = self._get_device_and_load_model_from_url()
 
     def _prepare_device(self, n_gpu_use):
         n_gpu = torch.cuda.device_count()
         if n_gpu_use > 0 and n_gpu == 0:
-            self.logger.warning("Warning: There\'s no GPU available on this machine,"
-                                "prediction will be performed on CPU.")
+            # self.logger.warning("Warning: There\'s no GPU available on this machine,"
+                                # "prediction will be performed on CPU.")
             n_gpu_use = 0
         if n_gpu_use > n_gpu:
-            self.logger.warning("Warning: The number of GPU\'s configured to use is {}, but only {} are available "
-                                "on this machine.".format(n_gpu_use, n_gpu))
+            # self.logger.warning("Warning: The number of GPU\'s configured to use is {}, but only {} are available on this machine.".format(n_gpu_use, n_gpu))
             n_gpu_use = n_gpu
-        if n_gpu_use > 0 and torch.cuda.is_available() \
-                and (torch.cuda.get_device_capability()[0] * 10 + torch.cuda.get_device_capability()[1] < 35):
-            self.logger.warning("Warning: The GPU has lower CUDA capabilities than the required 3.5 - using CPU")
+        if n_gpu_use > 0 and torch.cuda.is_available() and (torch.cuda.get_device_capability()[0] * 10 + torch.cuda.get_device_capability()[1] < 35):
+            # self.logger.warning("Warning: The GPU has lower CUDA capabilities than the required 3.5 - using CPU")
             n_gpu_use = 0
         device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
         list_ids = list(range(n_gpu_use))
         return device, list_ids
 
     def _get_device_and_load_model_from_url(self):
-        logger = self.config.get_logger('test')
+        # logger = self.config.get_logger('test')
 
         print('Initialising model')
         model = self.config.initialize('arch', module_arch)
@@ -95,7 +93,7 @@ class DeepMVLM:
         print('Getting device')
         device, device_ids = self._prepare_device(self.config['n_gpu'])
 
-        logger.info('Loading checkpoint: {}'.format(check_point_name))
+        # logger.info('Loading checkpoint: {}'.format(check_point_name))
 
         checkpoint = load_url(check_point_name, model_dir, map_location=device)
 
@@ -123,7 +121,7 @@ class DeepMVLM:
 
     # Deprecated - should not be used
     def _get_device_and_load_model(self):
-        logger = self.config.get_logger('test')
+        # logger = self.config.get_logger('test')
 
         print('Initialising model')
         model = self.config.initialize('arch', module_arch)
@@ -154,12 +152,12 @@ class DeepMVLM:
             print('No model trained for ', model_name)
             return None
 
-        logger.info('Loading checkpoint: {}'.format(check_point_name))
+        # logger.info('Loading checkpoint: {}'.format(check_point_name))
 
         device, device_ids = self._prepare_device(self.config['n_gpu'])
 
-        checkpoint = torch.load(check_point_name, map_location=device)
 
+        checkpoint = torch.load(check_point_name, map_location=device)
         state_dict = checkpoint['state_dict']
         if len(device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=device_ids)
@@ -167,6 +165,7 @@ class DeepMVLM:
         model.load_state_dict(state_dict)
 
         model = model.to(device)
+        model = torch.compile(model)
         model.eval()
         return device, model
 

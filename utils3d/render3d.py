@@ -678,6 +678,9 @@ class Render3D:
             actor_lm.GetProperty().SetColor(0, 0, 1)
             ren.AddActor(actor_lm)
 
+        axes = vtk.vtkAxesActor()
+        ren.AddActor(axes)
+
         # ren.GetActiveCamera().SetPosition(0, 0, 1)
         # ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
         # ren.GetActiveCamera().SetViewUp(0, 1, 0)

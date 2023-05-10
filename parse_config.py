@@ -6,14 +6,15 @@ from operator import getitem
 from datetime import datetime
 from logger import setup_logging
 from utils import read_json, write_json
-
+import argparse
 
 class ConfigParser:
     def __init__(self, args, options='', timestamp=True):
         # parse default and custom cli options
-        for opt in options:
-            args.add_argument(*opt.flags, default=None, type=opt.type)
-        args = args.parse_args()
+        # for opt in options:
+            # args.add_argument(*opt.flags, default=None, type=opt.type)
+        if not isinstance(args, argparse.Namespace):
+            args = args.parse_args()
         self._name = None
 
         if hasattr(args, 'device'):
