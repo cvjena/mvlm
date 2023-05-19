@@ -384,7 +384,7 @@ class Render3D:
             # ren_win.Render()
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
-            w2if.Update()
+            # w2if.Update()
 
             scale.Update()
             im = scale.GetOutput()

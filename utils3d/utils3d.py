@@ -1,6 +1,55 @@
 import numpy as np
 import vtk
 import os
+import time
+
+# FROM: https://se.mathworks.com/matlabcentral/fileexchange/37192-intersection-point-of-lines-in-3d-space?focused
+# =5235003&tab=function"
+"""
+Find intersection point of lines in 3D space, in the least squares sense.
+pa :          Nx3-matrix containing starting point of N lines
+pa :          Nx3-matrix containing end point of N lines
+p_intersect : Best intersection point of the N lines, in least squares sense.
+distances   : Distances from intersection point to the input lines
+Anders Eikenes, 2012 """
+def compute_intersection_between_lines(pa, pb):
+    n_lines = pa.shape[0]
+    si = pb - pa  # N lines described as vectors
+    ni = np.divide(si, np.transpose(np.sqrt(np.sum(si ** 2, 1)) * np.ones((3, n_lines))))  # Normalize vectors
+    nx = ni[:, 0]
+    ny = ni[:, 1]
+    nz = ni[:, 2]
+    sxx = np.sum(nx ** 2 - 1)
+    syy = np.sum(ny ** 2 - 1)
+    szz = np.sum(nz ** 2 - 1)
+    sxy = np.sum(np.multiply(nx, ny))
+    sxz = np.sum(np.multiply(nx, nz))
+    syz = np.sum(np.multiply(ny, nz))
+    s = np.array([[sxx, sxy, sxz], [sxy, syy, syz], [sxz, syz, szz]])
+    # cx = np.sum(np.multiply(pa[:, 0], (nx ** 2 - 1)) + np.multiply(pa[:, 1], np.multiply(nx, ny)) + np.multiply(pa[:, 2], np.multiply(nx, nz)))
+    # cy = np.sum(np.multiply(pa[:, 0], np.multiply(nx, ny)) + np.multiply(pa[:, 1], (ny ** 2 - 1)) + np.multiply(pa[:, 2], np.multiply(ny, nz)))
+    # cz = np.sum(np.multiply(pa[:, 0], np.multiply(nx, nz)) + np.multiply(pa[:, 1], np.multiply(ny, nz)) + np.multiply(pa[:, 2], (nz ** 2 - 1)))
+    
+    # simplify the above code
+    cx = np.sum(pa[:, 0] * (nx ** 2 - 1) + pa[:, 1] * (nx * ny) + pa[:, 2] * (nx * nz))
+    cy = np.sum(pa[:, 0] * (nx * ny) + pa[:, 1] * (ny ** 2 - 1) + pa[:, 2] * (ny * nz))
+    cz = np.sum(pa[:, 0] * (nx * nz) + pa[:, 1] * (ny * nz) + pa[:, 2] * (nz ** 2 - 1))
+    
+    
+    
+    c = np.array([[cx], [cy], [cz]])
+    p_intersect = np.matmul(np.linalg.pinv(s), c)
+    return p_intersect[:, 0]
+
+
+def lines_to_use(pa, pb, amnt_lines):
+    ran_lines = np.random.choice(range(len(pa)), amnt_lines, replace=False)
+    p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
+    # Compute distance from all lines to intersection
+    top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
+    bottom = pb - pa
+    distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
+    return distances, p_est
 
 
 class Utils3D:
@@ -61,8 +110,8 @@ class Utils3D:
         n_landmarks = self.heatmap_maxima.shape[0]
         n_views = self.heatmap_maxima.shape[1]
 
-        self.lm_start = np.zeros((n_landmarks, n_views, 3))
-        self.lm_end = np.zeros((n_landmarks, n_views, 3))
+        self.lm_start = np.empty((n_landmarks, n_views, 3))
+        self.lm_end = np.empty((n_landmarks, n_views, 3))
 
         img_size = self.config['data_loader']['args']['image_size']
         hm_size = self.config['data_loader']['args']['heatmap_size']
@@ -76,20 +125,17 @@ class Utils3D:
         x_len = x_max - x_min
         y_len = y_max - y_min
 
-        pd = vtk.vtkPolyData()
+        def rotation_matrix_x(angle):
+            return np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+        def rotation_matrix_y(angle):
+            return np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
+        def rotation_matrix_z(angle):
+            return np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
+
         for idx in range(n_views):
             rx, ry, rz, s, tx, ty = self.transformations_3d[idx, :]
-
-            # Set transformation matrix in vtk
-            t = vtk.vtkTransform()
-            t.Identity()
-            t.Update()
-
-            t.Identity()
-            t.RotateY(ry)
-            t.RotateX(rx)
-            t.RotateZ(rz)
-            t.Update()
+            t = np.diag(np.ones(4))
+            t[0:3, 0:3] = (rotation_matrix_y(np.deg2rad(ry)) @ rotation_matrix_x(np.deg2rad(rx))) @ rotation_matrix_z(np.deg2rad(rz))
 
             for lm_no in range(n_landmarks):
                 # [n_landmarks, n_views, x, y, value]
@@ -112,37 +158,16 @@ class Utils3D:
                 p_wc_e[0] = (x / winsize) * x_len + x_min
                 p_wc_e[1] = ((winsize - 1 - y) / winsize) * y_len + y_min
                 p_wc_e[2] = -500
+                
+                points = np.concatenate((p_wc_s, p_wc_e), axis=1)
+                points = np.concatenate((points, np.ones((1, 2))), axis=0)
+                points = np.matmul(t.T, points)
+                p_wc_s = points[:, 0]
+                p_wc_e = points[:, 1]
+                
+                self.lm_start[lm_no, idx, :] = p_wc_s[:3]
+                self.lm_end[lm_no, idx, :] = p_wc_e[:3]
 
-                # Insert line into vtk-framework to transform
-                points = vtk.vtkPoints()
-                lines = vtk.vtkCellArray()
-
-                lines.InsertNextCell(2)
-                pid = points.InsertNextPoint(p_wc_s)
-                lines.InsertCellPoint(pid)
-                pid = points.InsertNextPoint(p_wc_e)
-                lines.InsertCellPoint(pid)
-
-                pd.SetPoints(points)
-                del points
-                pd.SetLines(lines)
-                del lines
-
-                # Do inverse transform into original space
-                tfilt = vtk.vtkTransformPolyDataFilter()
-                tfilt.SetTransform(t.GetInverse())
-                tfilt.SetInputData(pd)
-                tfilt.Update()
-
-                lm_out = vtk.vtkPolyData()
-                lm_out.DeepCopy(tfilt.GetOutput())
-
-                self.lm_start[lm_no, idx, :] = lm_out.GetPoint(0)
-                self.lm_end[lm_no, idx, :] = lm_out.GetPoint(1)
-
-                del tfilt
-            del t
-        del pd
 
     def visualise_one_landmark_lines(self, lm_no, dir_name=None):
         if dir_name is None:
@@ -188,40 +213,6 @@ class Utils3D:
         del writer
         del pd
 
-    # FROM: https://se.mathworks.com/matlabcentral/fileexchange/37192-intersection-point-of-lines-in-3d-space?focused
-    # =5235003&tab=function"
-    """
-    Find intersection point of lines in 3D space, in the least squares sense.
-    pa :          Nx3-matrix containing starting point of N lines
-    pa :          Nx3-matrix containing end point of N lines
-    p_intersect : Best intersection point of the N lines, in least squares sense.
-    distances   : Distances from intersection point to the input lines
-    Anders Eikenes, 2012 """
-    def compute_intersection_between_lines(self, pa, pb):
-        n_lines = pa.shape[0]
-        si = pb - pa  # N lines described as vectors
-        ni = np.divide(si, np.transpose(np.sqrt(np.sum(si ** 2, 1)) * np.ones((3, n_lines))))  # Normalize vectors
-        nx = ni[:, 0]
-        ny = ni[:, 1]
-        nz = ni[:, 2]
-        sxx = np.sum(nx ** 2 - 1)
-        syy = np.sum(ny ** 2 - 1)
-        szz = np.sum(nz ** 2 - 1)
-        sxy = np.sum(np.multiply(nx, ny))
-        sxz = np.sum(np.multiply(nx, nz))
-        syz = np.sum(np.multiply(ny, nz))
-        s = np.array([[sxx, sxy, sxz], [sxy, syy, syz], [sxz, syz, szz]])
-        cx = np.sum(np.multiply(pa[:, 0], (nx ** 2 - 1)) + np.multiply(pa[:, 1], np.multiply(nx, ny)) +
-                    np.multiply(pa[:, 2], np.multiply(nx, nz)))
-        cy = np.sum(np.multiply(pa[:, 0], np.multiply(nx, ny)) + np.multiply(pa[:, 1], (ny ** 2 - 1)) +
-                    np.multiply(pa[:, 2], np.multiply(ny, nz)))
-        cz = np.sum(np.multiply(pa[:, 0], np.multiply(nx, nz)) + np.multiply(pa[:, 1], np.multiply(ny, nz)) +
-                    np.multiply(pa[:, 2], (nz ** 2 - 1)))
-
-        c = np.array([[cx], [cy], [cz]])
-        p_intersect = np.matmul(np.linalg.pinv(s), c)
-        return p_intersect[:, 0]
-
     def compute_intersection_between_lines_ransac(self, pa, pb):
         # TODO parameters in config
         iterations = 10
@@ -237,7 +228,7 @@ class Utils3D:
             # get 3 random lines
             ran_lines = np.random.choice(range(n_lines), 3, replace=False)
             # Compute first estimate of intersection
-            p_est = self.compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
+            p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
             # Compute distance from all lines to intersection
             top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
             bottom = pb - pa
@@ -247,7 +238,7 @@ class Utils3D:
             if n_inliners > d:
                 # reestimate based on inliners
                 idx = distances < dist_thres
-                p_est = self.compute_intersection_between_lines(pa[idx, :], pb[idx, :])
+                p_est = compute_intersection_between_lines(pa[idx, :], pb[idx, :])
 
                 # Compute distance from all inliners to intersection
                 top = np.cross((np.transpose(p_est) - pa[idx, :]), (np.transpose(p_est) - pb[idx, :]))
@@ -310,7 +301,7 @@ class Utils3D:
             p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
             sum_error = sum_error + best_error
             self.landmarks[lm_no, :] = p_intersect
-        print("Ransac average error ", sum_error/n_landmarks)
+        # print("Ransac average error ", sum_error/n_landmarks)
 
     @staticmethod
     def multi_read_surface(file_name):
