@@ -255,9 +255,6 @@ class Render3D:
         img_size = self.config['data_loader']['args']['image_size']
         win_size = img_size
         slack = 5
-
-        self.logger.debug('Depth Rendering')
-
         n_channels = 4  # 3 for RGB, 1 for depth
         image_stack = np.empty((n_views, win_size, win_size, n_channels), dtype=np.float32)
 
@@ -399,9 +396,10 @@ class Render3D:
             # actor_geometry.SetVisibility(False)
             # actor_text.SetVisibility(True)
             ren.Modified()
-        return image_stack
+        return image_stack, pd
 
     def render_3d_file(self, file_name):
+        t = time.time()
         image_channels = self.config['data_loader']['args']['image_channels']
         file_type = (os.path.splitext(file_name)[1]).lower()
 
@@ -409,16 +407,15 @@ class Render3D:
         transformation_stack = None
         n_views = self.config['data_loader']['args']['n_views']
         win_size = self.config['data_loader']['args']['image_size']
-
+        print('Render [0] - Prepare', time.time() - t)
+        
         if file_type == ".obj" and image_channels == "RGB":
             transformation_stack = self.generate_3d_transformations()
             image_stack = self.render_3d_obj_rgb(transformation_stack, file_name)
             image_stack = image_stack / 255
         elif file_type == ".obj" and image_channels == "RGB+depth":
             transformation_stack = self.generate_3d_transformations()
-            # image_stack_rgb = self.render_3d_obj_rgb(transformation_stack, file_name)
-            image_stack_full = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
-            # image_stack_depth = self.render_3d_obj_depth(transformation_stack, file_name)
+            image_stack_full, pd = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
             n_channels = 4
             image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
             image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
@@ -426,7 +423,7 @@ class Render3D:
         else:
             print("Can not render filetype ", file_type, " using image_channels ", image_channels)
 
-        return image_stack, transformation_stack
+        return image_stack, transformation_stack, pd
 
     @staticmethod
     def get_landmark_bounds(lms):

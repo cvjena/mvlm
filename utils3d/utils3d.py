@@ -445,8 +445,8 @@ class Utils3D:
 
     # Project found landmarks to closest point on the target surface
     # return the landmarks in the original space
-    def project_landmarks_to_surface(self, mesh_name):
-        pd = self.multi_read_surface(mesh_name)
+    def project_landmarks_to_surface(self, pd):
+        # pd = self.multi_read_surface(mesh_name)
 
         pd, t = self.apply_pre_transformation(pd)
 

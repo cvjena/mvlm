@@ -175,7 +175,7 @@ class DeepMVLM:
 
         s = time.time()
         render_3d = Render3D(self.config)
-        image_stack, transform_stack = render_3d.render_3d_file(file_name)
+        image_stack, transform_stack, pd = render_3d.render_3d_file(file_name)
         print('Render [Total]: ', time.time() - s)
        
         s = time.time()
@@ -197,7 +197,7 @@ class DeepMVLM:
         print('Landmarks [1] - From View Lines: ', time.time() - s1)
 
         s1 = time.time()
-        u3d.project_landmarks_to_surface(file_name)
+        u3d.project_landmarks_to_surface(pd)
         print('Landmarks [2] - Project to Surface: ', time.time() - s1)
         print('Landmakrs [Total]: ', time.time() - s)
         
