@@ -62,26 +62,11 @@ class Predict2D:
 
         return coordinates
 
-    def find_maxima_in_batch_of_heatmaps(self, heatmaps, cur_id, heatmap_maxima):
+    def find_maxima_in_batch_of_heatmaps(self, heatmaps, heatmap_maxima):
         heatmaps = heatmaps.numpy()
         batch_size = heatmaps.shape[0]
-
-
         for idx in range(batch_size):
-            coordinates = self.find_heat_map_maxima(heatmaps[idx, :, :, :], method='simple')
-            for lm_no in range(coordinates.shape[0]):
-                px = coordinates[lm_no][0]
-                py = coordinates[lm_no][1]
-                value = coordinates[lm_no][2]
-                if value > 1.2:  # TODO debug - really bad hack due to weird max in heatmaps
-                    print("Found heatmap with value > 1.2 LM {} value {} pos {} {}  ".format(lm_no, value, px, py))
-                    value = 0
-                # if lm_no == 0:
-                # print('LM value and pos', lm_no, value, px, py)
-                # name_hm_maxima = self.config.temp_dir /
-                # ('hm_maxima' + str(cur_id + idx) + '_LM_' + str(lm_no) + '.png')
-                # imageio.imwrite(name_hm_maxima, heatmaps[idx, lm_no, :, :])
-                heatmap_maxima[lm_no, cur_id + idx, :] = (px, py, value)
+            heatmap_maxima[:, idx, :] = self.find_heat_map_maxima(heatmaps[idx], method='simple')
 
     def generate_image_with_heatmap_maxima(self, image, heat_map):
         im_size = image.shape[0]
@@ -182,7 +167,7 @@ class Predict2D:
         batch_size = self.config['data_loader']['args']['batch_size']
         n_landmarks = self.config['arch']['args']['n_landmarks']
 
-        heatmap_maxima = np.zeros((n_landmarks, n_views, 3))
+        heatmap_maxima = np.empty((n_landmarks, n_views, 3))
 
         # move all images to the GPU
         image_stack_d = torch.from_numpy(image_stack)
@@ -210,6 +195,6 @@ class Predict2D:
         print("Prediction [1] - Copy to CPU: ", time.time() - t)
         
         t = time.time()
-        self.find_maxima_in_batch_of_heatmaps(heatmaps, 0, heatmap_maxima)
+        self.find_maxima_in_batch_of_heatmaps(heatmaps,  heatmap_maxima)
         print("Prediction [2] - Find maxima: ", time.time() - t)
         return heatmap_maxima
