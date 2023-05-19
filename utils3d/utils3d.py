@@ -133,7 +133,7 @@ class Utils3D:
             return np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
 
         for idx in range(n_views):
-            rx, ry, rz, s, tx, ty = self.transformations_3d[idx, :]
+            rx, ry, rz = self.transformations_3d[idx, :3]
             t = np.diag(np.ones(4))
             t[0:3, 0:3] = (rotation_matrix_y(np.deg2rad(ry)) @ rotation_matrix_x(np.deg2rad(rx))) @ rotation_matrix_z(np.deg2rad(rz))
 
