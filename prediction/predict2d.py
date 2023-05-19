@@ -25,12 +25,11 @@ class Predict2D:
         # simple: Use only maximum pixel value in HM
         if method == "simple":
             for k in range(out_dim):
-                hm = copy.copy(heatmaps[k, :, :])
-                highest_idx = np.unravel_index(np.argmax(hm), (hm_size, hm_size))
+                highest_idx = np.unravel_index(np.argmax(heatmaps[k, :, :]), (hm_size, hm_size))
                 px = highest_idx[0]
                 py = highest_idx[1]
-                value = hm[px, py]  # TODO check if values is equal to np.max(hm)
-                coordinates[k, :] = (px - 1, py - 0.5, value)  # TODO find out why it works with the subtractions
+                value = heatmaps[k, px, py]  # TODO check if values is equal to np.max(hm)
+                coordinates[k] = (px - 1, py - 0.5, value)  # TODO find out why it works with the subtractions
 
         if method == "moment":
             for k in range(out_dim):
@@ -64,17 +63,12 @@ class Predict2D:
         return coordinates
 
     def find_maxima_in_batch_of_heatmaps(self, heatmaps, cur_id, heatmap_maxima):
-        write_heatmaps = False
         heatmaps = heatmaps.numpy()
         batch_size = heatmaps.shape[0]
 
-        f = None
-        for idx in range(batch_size):
-            if write_heatmaps:
-                name_hm_maxima = self.config.temp_dir / ('hm_maxima' + str(cur_id + idx) + '.txt')
-                f = open(name_hm_maxima, 'w')
 
-            coordinates = self.find_heat_map_maxima(heatmaps[idx, :, :, :], method='moment')
+        for idx in range(batch_size):
+            coordinates = self.find_heat_map_maxima(heatmaps[idx, :, :, :], method='simple')
             for lm_no in range(coordinates.shape[0]):
                 px = coordinates[lm_no][0]
                 py = coordinates[lm_no][1]
@@ -88,12 +82,6 @@ class Predict2D:
                 # ('hm_maxima' + str(cur_id + idx) + '_LM_' + str(lm_no) + '.png')
                 # imageio.imwrite(name_hm_maxima, heatmaps[idx, lm_no, :, :])
                 heatmap_maxima[lm_no, cur_id + idx, :] = (px, py, value)
-                if write_heatmaps:
-                    out_str = str(px) + ' ' + str(py) + ' ' + str(value) + '\n'
-                    f.write(out_str)
-
-            if write_heatmaps:
-                f.close()
 
     def generate_image_with_heatmap_maxima(self, image, heat_map):
         im_size = image.shape[0]
@@ -204,6 +192,7 @@ class Predict2D:
         heatmaps = torch.zeros((n_views, n_landmarks, 256, 256), device=self.device)
         # process the views in batch sized chunks
         cur_id = 0
+        t = time.time()
         with torch.no_grad():
             while cur_id + batch_size <= n_views:
                 cur_images = image_stack_d[cur_id:cur_id + batch_size, :, :, :]
@@ -214,6 +203,13 @@ class Predict2D:
                 # heatmaps = output[1, :, :, :, :].cpu()
                 heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
                 cur_id = cur_id + batch_size
+        print("Prediction [0] - GPU time: ", time.time() - t)
+        
+        t = time.time()        
         heatmaps = heatmaps.cpu()
+        print("Prediction [1] - Copy to CPU: ", time.time() - t)
+        
+        t = time.time()
         self.find_maxima_in_batch_of_heatmaps(heatmaps, 0, heatmap_maxima)
+        print("Prediction [2] - Find maxima: ", time.time() - t)
         return heatmap_maxima
