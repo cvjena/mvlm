@@ -215,7 +215,7 @@ class Utils3D:
 
     def compute_intersection_between_lines_ransac(self, pa, pb):
         # TODO parameters in config
-        iterations = 10
+        # iterations = 1
         best_error = 100000000  # TODO should find a better initialiser
         best_p = (0, 0, 0)
         dist_thres = 10 * 10  # TODO should find a better way to esimtate dist_thres
@@ -224,33 +224,33 @@ class Utils3D:
         d = n_lines / 3
         used_lines = -1
 
-        for i in range(iterations):
-            # get 3 random lines
-            ran_lines = np.random.choice(range(n_lines), 3, replace=False)
-            # Compute first estimate of intersection
-            p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
-            # Compute distance from all lines to intersection
-            top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
-            bottom = pb - pa
+        # for i in range(iterations):
+        # get 3 random lines
+        ran_lines = np.random.choice(range(n_lines), 3, replace=False)
+        # Compute first estimate of intersection
+        p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
+        # Compute distance from all lines to intersection
+        top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
+        bottom = pb - pa
+        distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
+        # number of inliners
+        n_inliners = np.sum(distances < dist_thres)
+        if n_inliners > d:
+            # reestimate based on inliners
+            idx = distances < dist_thres
+            p_est = compute_intersection_between_lines(pa[idx, :], pb[idx, :])
+
+            # Compute distance from all inliners to intersection
+            top = np.cross((np.transpose(p_est) - pa[idx, :]), (np.transpose(p_est) - pb[idx, :]))
+            bottom = pb[idx, :] - pa[idx, :]
             distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
-            # number of inliners
-            n_inliners = np.sum(distances < dist_thres)
-            if n_inliners > d:
-                # reestimate based on inliners
-                idx = distances < dist_thres
-                p_est = compute_intersection_between_lines(pa[idx, :], pb[idx, :])
 
-                # Compute distance from all inliners to intersection
-                top = np.cross((np.transpose(p_est) - pa[idx, :]), (np.transpose(p_est) - pb[idx, :]))
-                bottom = pb[idx, :] - pa[idx, :]
-                distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
-
-                # sum_squared = np.sum(np.square(distances)) / n_inliners
-                sum_squared = np.sum(distances) / n_inliners
-                if sum_squared < best_error:
-                    best_error = sum_squared
-                    best_p = p_est
-                    used_lines = n_inliners
+            # sum_squared = np.sum(np.square(distances)) / n_inliners
+            sum_squared = np.sum(distances) / n_inliners
+            if sum_squared < best_error:
+                best_error = sum_squared
+                best_p = p_est
+                used_lines = n_inliners
 
         if used_lines == -1:
             self.logger.warning('Ransac failed - estimating from all lines')
@@ -284,20 +284,19 @@ class Utils3D:
     def compute_all_landmarks_from_view_lines(self):
         n_landmarks = self.heatmap_maxima.shape[0]
         self.landmarks = np.empty((n_landmarks, 3))
-
         sum_error = 0
         for lm_no in range(n_landmarks):
             pa = self.lm_start[lm_no, :, :]
             pb = self.lm_end[lm_no, :, :]
-            if self.config['process_3d']['filter_view_lines'] == "abs_value":
-                pa, pb = self.filter_lines_based_on_heatmap_value_using_absolute_value(lm_no, pa, pb)
-            elif self.config['process_3d']['filter_view_lines'] == "quantile":
-                pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(lm_no, pa, pb)
+            # if self.config['process_3d']['filter_view_lines'] == "abs_value":
+            # pa, pb = self.filter_lines_based_on_heatmap_value_using_absolute_value(lm_no, pa, pb)
+            # elif self.config['process_3d']['filter_view_lines'] == "quantile":
+            pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(lm_no, pa, pb)
+            
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
                 raise('Not enough valid view lines for landmark ', lm_no)
             
-            # p_intersect = self.compute_intersection_between_lines(pa, pb)
             p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
             sum_error = sum_error + best_error
             self.landmarks[lm_no, :] = p_intersect
