@@ -226,7 +226,7 @@ class Utils3D:
 
         # for i in range(iterations):
         # get 3 random lines
-        ran_lines = np.random.choice(range(n_lines), 10, replace=False)
+        ran_lines = np.random.choice(range(n_lines), 8, replace=True)
         # Compute first estimate of intersection
         p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
         # Compute distance from all lines to intersection
@@ -254,7 +254,7 @@ class Utils3D:
 
         if used_lines == -1:
             self.logger.warning('Ransac failed - estimating from all lines')
-            best_p = self.compute_intersection_between_lines(pa, pb)
+            best_p = compute_intersection_between_lines(pa, pb)
         # else:
         # print('Ransac error ', best_error, ' with ', used_lines, ' lines')
 
@@ -301,6 +301,7 @@ class Utils3D:
             sum_error = sum_error + best_error
             self.landmarks[lm_no, :] = p_intersect
         # print("Ransac average error ", sum_error/n_landmarks)
+        return sum_error/n_landmarks
 
     @staticmethod
     def multi_read_surface(file_name):

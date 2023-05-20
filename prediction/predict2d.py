@@ -190,16 +190,19 @@ class Predict2D:
                 # heatmaps = output[1, :, :, :, :].cpu()
                 heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
                 cur_id = cur_id + batch_size
-        print("Prediction [0] - GPU time: ", time.time() - t)
+        print("Prediction [0] - GPU time: ", self.p_time(time.time() - t))
         print("Prediction [0] - GPU time (mean): ", np.mean(pre_times))
         
         if self.device.type == 'cuda':
             torch.cuda.synchronize()
         t = time.time()        
         heatmaps = heatmaps.cpu()
-        print("Prediction [1] - Copy to CPU: ", time.time() - t)
+        print("Prediction [1] - Copy to CPU: ", self.p_time(time.time() - t))
         
         t = time.time()
         self.find_maxima_in_batch_of_heatmaps(heatmaps,  heatmap_maxima)
-        print("Prediction [2] - Find maxima: ", time.time() - t)
+        print("Prediction [2] - Find maxima: ", self.p_time(time.time() - t))
         return heatmap_maxima
+    
+    def p_time(self, t):
+        return f"{t:08.6f} s"

@@ -176,12 +176,12 @@ class DeepMVLM:
         s = time.time()
         render_3d = Render3D(self.config)
         image_stack, transform_stack, pd = render_3d.render_3d_file(file_name)
-        print('Render [Total]: ', time.time() - s)
+        print('Render [Total]: ', self.p_time(time.time() - s))
        
         s = time.time()
         predict_2d = Predict2D(self.config, self.model, self.device)
         heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)
-        print('Prediction [Total]: ', time.time() - s)
+        print('Prediction [Total]: ', self.p_time(time.time() - s))
 
         s = time.time()
         u3d = Utils3D(self.config)
@@ -190,20 +190,23 @@ class DeepMVLM:
         
         s1 = time.time()
         u3d.compute_lines_from_heatmap_maxima()
-        print('Landmarks [0] - From Heatmaps: ', time.time() - s1)
-       
+        print('Landmarks [0] - From Heatmaps: ', self.p_time(time.time() - s1))
+
         s1 = time.time() 
-        u3d.compute_all_landmarks_from_view_lines()
-        print('Landmarks [1] - From View Lines: ', time.time() - s1)
+        error = u3d.compute_all_landmarks_from_view_lines()
+        print('Landmarks [1] - From View Lines: ', self.p_time(time.time() - s1))
 
         s1 = time.time()
         u3d.project_landmarks_to_surface(pd)
-        print('Landmarks [2] - Project to Surface: ', time.time() - s1)
-        print('Landmakrs [Total]: ', time.time() - s)
-        
-        print("Total: ", time.time() - full_s)
+        print('Landmarks [2] - Project to Surface: ', self.p_time(time.time() - s1))
+        print('Landmarks [Total]: ', self.p_time(time.time() - s))
+        print('Landmarks [Error]: ', f"{error:08.6f}", " mm")
 
+        print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
         return u3d.landmarks
+    
+    def p_time(self, t):
+        return f"{t:08.6f} s"
 
     @staticmethod
     def write_landmarks_as_vtk_points(landmarks, file_name):
