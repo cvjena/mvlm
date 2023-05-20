@@ -163,33 +163,38 @@ class Predict2D:
             imageio.imwrite(name_hm_maxima_2, im_marked)
 
     def predict_heatmaps_from_images(self, image_stack):
+        # if cuda
+        torch.set_float32_matmul_precision("medium")
         n_views = self.config['data_loader']['args']['n_views']
         batch_size = self.config['data_loader']['args']['batch_size']
         n_landmarks = self.config['arch']['args']['n_landmarks']
-
         heatmap_maxima = np.empty((n_landmarks, n_views, 3))
-
         # move all images to the GPU
         image_stack_d = torch.from_numpy(image_stack)
         image_stack_d = image_stack_d.to(self.device)
         image_stack_d = image_stack_d.permute(0, 3, 1, 2)  # from BHWC to BCHW
   
         heatmaps = torch.zeros((n_views, n_landmarks, 256, 256), device=self.device)
-        # process the views in batch sized chunks
         cur_id = 0
         t = time.time()
+        pre_times = []
         with torch.no_grad():
             while cur_id + batch_size <= n_views:
                 cur_images = image_stack_d[cur_id:cur_id + batch_size, :, :, :]
                 # print('predicting heatmaps for batch ', cur_id, ' to ', cur_id + batch_size)
                 # data = data.to(self.device)
+                tt = time.time()
                 output = self.model(cur_images)
+                pre_times.append(time.time() - tt)
                 # output [stack (0 or 1), batch, lm, hm_size, hm_size]
                 # heatmaps = output[1, :, :, :, :].cpu()
                 heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
                 cur_id = cur_id + batch_size
         print("Prediction [0] - GPU time: ", time.time() - t)
+        print("Prediction [0] - GPU time (mean): ", np.mean(pre_times))
         
+        if self.device.type == 'cuda':
+            torch.cuda.synchronize()
         t = time.time()        
         heatmaps = heatmaps.cpu()
         print("Prediction [1] - Copy to CPU: ", time.time() - t)

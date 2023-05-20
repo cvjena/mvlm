@@ -226,7 +226,7 @@ class Utils3D:
 
         # for i in range(iterations):
         # get 3 random lines
-        ran_lines = np.random.choice(range(n_lines), 3, replace=False)
+        ran_lines = np.random.choice(range(n_lines), 10, replace=False)
         # Compute first estimate of intersection
         p_est = compute_intersection_between_lines(pa[ran_lines, :], pb[ran_lines, :])
         # Compute distance from all lines to intersection
