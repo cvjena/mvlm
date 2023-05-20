@@ -266,6 +266,7 @@ class Render3D:
         win_size = img_size
         slack = 5
 
+        tt = time.time()
         image_stack = np.empty((n_views, win_size, win_size, 4), dtype=np.float32)
         pd = Utils3D.multi_read_surface(file_name)
 
@@ -273,7 +274,7 @@ class Render3D:
             print('Could not read', file_name)
             return None
 
-        pd = self.apply_pre_transformation(pd)
+        # pd = self.apply_pre_transformation(pd)
 
         texture_img = Utils3D.multi_read_texture(file_name)
         if texture_img is not None:
@@ -330,6 +331,8 @@ class Render3D:
         extend_factor = 1.0
         side_length = max([xlen, ylen]) * extend_factor / 2
 
+        print("Render [1] - Setup time: ", f"{time.time() - tt:08.6f} s")
+        tt = time.time()
         for i, (rx, ry, rz, *_) in enumerate(transform_stack):
             t.Identity()
             t.RotateY(ry)
@@ -382,6 +385,8 @@ class Render3D:
             a = a.reshape(rows, cols, components)
             image_stack[i, :, :, 3:4] = np.flipud(a) # get depth data
     
+        print('Render [2] - Render', f"{time.time() - tt:08.6f} s")
+    
         # remove actors
         self.ren.RemoveActor(actor_geometry)
         self.ren.RemoveActor(actor_text)
@@ -391,12 +396,7 @@ class Render3D:
         t = time.time()
         image_channels = self.config['data_loader']['args']['image_channels']
         file_type = (os.path.splitext(file_name)[1]).lower()
-
-        image_stack = None
-        transformation_stack = None
-        n_views = self.config['data_loader']['args']['n_views']
-        win_size = self.config['data_loader']['args']['image_size']
-        print('Render [0] - Prepare', time.time() - t)
+        print('Render [0] - Prepare', f"{time.time() - t:08.6f} s")
         
         if file_type == ".obj" and image_channels == "RGB":
             transformation_stack = self.generate_3d_transformations()
@@ -404,13 +404,10 @@ class Render3D:
             image_stack = image_stack / 255
         elif file_type == ".obj" and image_channels == "RGB+depth":
             transformation_stack = self.generate_3d_transformations()
-            image_stack_full, pd = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
-            n_channels = 4
-            image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
-            image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
-            image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 3:4] / 255
+            image_stack, pd = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
+            image_stack = image_stack / 255
         else:
-            print("Can not render filetype ", file_type, " using image_channels ", image_channels)
+            raise("Can not render filetype ", file_type, " using image_channels ", image_channels)
 
         return image_stack, transformation_stack, pd
 
