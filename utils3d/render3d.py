@@ -26,7 +26,7 @@ class Render3D:
         self.config = config
         self.logger = config.get_logger('Render3D')
 
-    def random_transform(self):
+    def random_transform(self, size=1):
         min_x = self.config['process_3d']['min_x_angle']
         max_x = self.config['process_3d']['max_x_angle']
         min_y = self.config['process_3d']['min_y_angle']
@@ -34,26 +34,21 @@ class Render3D:
         min_z = self.config['process_3d']['min_z_angle']
         max_z = self.config['process_3d']['max_z_angle']
 
-        rx = np.double(np.random.randint(min_x, max_x, 1))
-        ry = np.double(np.random.randint(min_y, max_y, 1))
-        rz = np.double(np.random.randint(min_z, max_z, 1))
-        # the following values are currently not used
-        scale = np.double(np.random.uniform(1.4, 1.9, 1))
-        tx = np.double(np.random.randint(-20, 20, 1))
-        ty = np.double(np.random.randint(-20, 20, 1))
+        rx = np.random.randint(min_x, max_x, size=size)
+        ry = np.random.randint(min_y, max_y, size=size)
+        rz = np.random.randint(min_z, max_z, size=size)
 
-        return rx, ry, rz, scale, tx, ty
+        # the following values are currently not used
+        scale = np.random.uniform(1.4, 1.9, size=size)
+        tx = np.random.randint(-20, 20, size=size)
+        ty = np.random.randint(-20, 20, size=size)
+
+        return np.stack((rx, ry, rz, scale, tx, ty), axis=1)
 
     # Generate nview 3D transformations and return them as a stack
     def generate_3d_transformations(self):
         n_views = self.config['data_loader']['args']['n_views']
-        transform_stack = np.zeros((n_views, 6), dtype=np.float32)
-
-        for idx in range(n_views):
-            rx, ry, rz, s, tx, ty = self.random_transform()
-            transform_stack[idx, :] = (rx, ry, rz, s, tx, ty)
-
-        return transform_stack
+        return self.random_transform(size=n_views)
 
     def compute_pre_transformation(self, file_name):
         translation = [0, 0, 0]
