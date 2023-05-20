@@ -283,7 +283,6 @@ class Render3D:
             texture.SetQualityTo32Bit()
             texture.SetInputData(texture_img)
 
-
         t = vtk.vtkTransform()
         t.Identity()
         t.Update()
@@ -320,10 +319,18 @@ class Render3D:
         scale.SetShift(0)
         scale.SetScale(-255)
 
-        for view in tqdm(range(n_views)):
-            # print('Rendering ', name_rgb)
-            rx, ry, rz, s, tx, ty = transform_stack[view]
+        xmin = -150
+        xmax = 150
+        ymin = -150
+        ymax = 150
+        xlen = xmax - xmin
+        ylen = ymax - ymin
+        cx = 0
+        cy = 0
+        extend_factor = 1.0
+        side_length = max([xlen, ylen]) * extend_factor / 2
 
+        for i, (rx, ry, rz, *_) in enumerate(transform_stack):
             t.Identity()
             t.RotateY(ry)
             t.RotateX(rx)
@@ -331,22 +338,10 @@ class Render3D:
             t.Update()
             trans.Update()
 
-            xmin = -150
-            xmax = 150
-            ymin = -150
-            ymax = 150
             zmin = trans.GetOutput().GetBounds()[4]
             zmax = trans.GetOutput().GetBounds()[5]
-            xlen = xmax - xmin
-            ylen = ymax - ymin
-
-            cx = 0
-            cy = 0
-            extend_factor = 1.0
-            side_length = max([xlen, ylen]) * extend_factor
-            # zoom_fac = win_size / side_length
-
-            self.ren.GetActiveCamera().SetParallelScale(side_length / 2)
+            
+            self.ren.GetActiveCamera().SetParallelScale(side_length)
             self.ren.GetActiveCamera().SetPosition(cx, cy, 500)
             self.ren.GetActiveCamera().SetFocalPoint(cx, cy, 0)
             self.ren.GetActiveCamera().SetClippingRange(500 - zmax - slack, 500 - zmin + slack)
@@ -354,8 +349,8 @@ class Render3D:
             # Save textured image
             w2if.SetInputBufferTypeToRGB()
 
-            actor_geometry.SetVisibility(False)
-            actor_text.SetVisibility(True)
+            # actor_geometry.SetVisibility(False)
+            # actor_text.SetVisibility(True)
             mapper.Modified()
             self.ren.Modified()  # force actors to have the correct visibility
             self.ren_win.Render()
@@ -372,13 +367,11 @@ class Render3D:
             a = a.reshape(rows, cols, components)
 
             # get RGB data - 3 first channels
-            image_stack[view, :, :, 0:3] = np.flipud(a)
+            image_stack[i, :, :, 0:3] = np.flipud(a)
 
-            self.ren.Modified()  # force actors to have the correct visibility
-            # ren_win.Render()
+            # self.ren.Modified()  # force actors to have the correct visibility
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
-            # w2if.Update()
 
             scale.Update()
             im = scale.GetOutput()
@@ -387,13 +380,8 @@ class Render3D:
             a = vtk_to_numpy(sc)
             components = sc.GetNumberOfComponents()
             a = a.reshape(rows, cols, components)
-            # get depth data
-            image_stack[view, :, :, 3:4] = np.flipud(a)
-
-            # actor_geometry.SetVisibility(False)
-            # actor_text.SetVisibility(True)
-            self.ren.Modified()
-        
+            image_stack[i, :, :, 3:4] = np.flipud(a) # get depth data
+    
         # remove actors
         self.ren.RemoveActor(actor_geometry)
         self.ren.RemoveActor(actor_text)
