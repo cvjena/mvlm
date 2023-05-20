@@ -61,6 +61,8 @@ class DeepMVLM:
         # self.device, self.model = self._get_device_and_load_model()
         # self.logger = config.get_logger('predict')
         self.device, self.model = self._get_device_and_load_model_from_url()
+        self.render_3d = Render3D(self.config)
+        
 
     def _prepare_device(self, n_gpu_use):
         n_gpu = torch.cuda.device_count()
@@ -172,10 +174,8 @@ class DeepMVLM:
 
     def predict_one_file(self, file_name):
         full_s = time.time()
-
         s = time.time()
-        render_3d = Render3D(self.config)
-        image_stack, transform_stack, pd = render_3d.render_3d_file(file_name)
+        image_stack, transform_stack, pd = self.render_3d.render_3d_file(file_name)
         print('Render [Total]: ', self.p_time(time.time() - s))
        
         s = time.time()

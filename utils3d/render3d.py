@@ -25,6 +25,22 @@ class Render3D:
     def __init__(self, config):
         self.config = config
         self.logger = config.get_logger('Render3D')
+        
+        # Initialize Camera
+        self.ren = vtk.vtkRenderer()
+        self.ren.SetBackground(1, 1, 1)
+        self.ren.GetActiveCamera().SetPosition(0, 0, 1)
+        self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
+        self.ren.GetActiveCamera().SetViewUp(0, 1, 0)
+        self.ren.GetActiveCamera().SetParallelProjection(1)
+
+        # Initialize RenderWindow
+        win_size = self.config['data_loader']['args']['image_size']
+        self.ren_win = vtk.vtkRenderWindow()
+        self.ren_win.AddRenderer(self.ren)
+        self.ren_win.SetSize(win_size, win_size)
+        self.ren_win.SetOffScreenRendering(True)
+        
 
     def random_transform(self, size=1):
         min_x = self.config['process_3d']['min_x_angle']
@@ -245,15 +261,14 @@ class Render3D:
         return trans.GetOutput()
 
     def render_3d_multi_rgb_geometry_depth(self, transform_stack, file_name):
-        off_screen_rendering = self.config['process_3d']['off_screen_rendering']
         n_views = self.config['data_loader']['args']['n_views']
         img_size = self.config['data_loader']['args']['image_size']
         win_size = img_size
         slack = 5
-        n_channels = 4  # 3 for RGB, 1 for depth
-        image_stack = np.empty((n_views, win_size, win_size, n_channels), dtype=np.float32)
 
+        image_stack = np.empty((n_views, win_size, win_size, 4), dtype=np.float32)
         pd = Utils3D.multi_read_surface(file_name)
+
         if pd.GetNumberOfPoints() < 1:
             print('Could not read', file_name)
             return None
@@ -268,19 +283,6 @@ class Render3D:
             texture.SetQualityTo32Bit()
             texture.SetInputData(texture_img)
 
-        # Initialize Camera
-        ren = vtk.vtkRenderer()
-        ren.SetBackground(1, 1, 1)
-        ren.GetActiveCamera().SetPosition(0, 0, 1)
-        ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
-        ren.GetActiveCamera().SetViewUp(0, 1, 0)
-        ren.GetActiveCamera().SetParallelProjection(1)
-
-        # Initialize RenderWindow
-        ren_win = vtk.vtkRenderWindow()
-        ren_win.AddRenderer(ren)
-        ren_win.SetSize(win_size, win_size)
-        ren_win.SetOffScreenRendering(off_screen_rendering)
 
         t = vtk.vtkTransform()
         t.Identity()
@@ -303,14 +305,14 @@ class Render3D:
             actor_text.GetProperty().SetAmbient(1.0)
             actor_text.GetProperty().SetSpecular(0)
             actor_text.GetProperty().SetDiffuse(0)
-        ren.AddActor(actor_text)
+        self.ren.AddActor(actor_text)
 
         actor_geometry = vtk.vtkActor()
         actor_geometry.SetMapper(mapper)
-        ren.AddActor(actor_geometry)
+        self.ren.AddActor(actor_geometry)
 
         w2if = vtk.vtkWindowToImageFilter()
-        w2if.SetInput(ren_win)
+        w2if.SetInput(self.ren_win)
 
         scale = vtk.vtkImageShiftScale()
         scale.SetOutputScalarTypeToUnsignedChar()
@@ -344,10 +346,10 @@ class Render3D:
             side_length = max([xlen, ylen]) * extend_factor
             # zoom_fac = win_size / side_length
 
-            ren.GetActiveCamera().SetParallelScale(side_length / 2)
-            ren.GetActiveCamera().SetPosition(cx, cy, 500)
-            ren.GetActiveCamera().SetFocalPoint(cx, cy, 0)
-            ren.GetActiveCamera().SetClippingRange(500 - zmax - slack, 500 - zmin + slack)
+            self.ren.GetActiveCamera().SetParallelScale(side_length / 2)
+            self.ren.GetActiveCamera().SetPosition(cx, cy, 500)
+            self.ren.GetActiveCamera().SetFocalPoint(cx, cy, 0)
+            self.ren.GetActiveCamera().SetClippingRange(500 - zmax - slack, 500 - zmin + slack)
 
             # Save textured image
             w2if.SetInputBufferTypeToRGB()
@@ -355,8 +357,8 @@ class Render3D:
             actor_geometry.SetVisibility(False)
             actor_text.SetVisibility(True)
             mapper.Modified()
-            ren.Modified()  # force actors to have the correct visibility
-            ren_win.Render()
+            self.ren.Modified()  # force actors to have the correct visibility
+            self.ren_win.Render()
 
             w2if.Modified()  # Needed here else only first rendering is put to file
             w2if.Update()
@@ -372,7 +374,7 @@ class Render3D:
             # get RGB data - 3 first channels
             image_stack[view, :, :, 0:3] = np.flipud(a)
 
-            ren.Modified()  # force actors to have the correct visibility
+            self.ren.Modified()  # force actors to have the correct visibility
             # ren_win.Render()
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
@@ -390,7 +392,11 @@ class Render3D:
 
             # actor_geometry.SetVisibility(False)
             # actor_text.SetVisibility(True)
-            ren.Modified()
+            self.ren.Modified()
+        
+        # remove actors
+        self.ren.RemoveActor(actor_geometry)
+        self.ren.RemoveActor(actor_text)
         return image_stack, pd
 
     def render_3d_file(self, file_name):
