@@ -1,4 +1,5 @@
 import time
+import numpy as np
 import torch
 import model.model as module_arch
 from utils3d import Utils3D
@@ -6,6 +7,7 @@ from utils3d import Render3D
 from prediction import Predict2D
 from torch.utils.model_zoo import load_url
 # import os
+from PIL import Image
 
 models_urls = {
     'MVLMModel_DTU3D-RGB':
@@ -177,6 +179,38 @@ class DeepMVLM:
         s = time.time()
         image_stack, transform_stack, pd = self.render_3d.render_3d_file(file_name)
         print('Render [Total]: ', self.p_time(time.time() - s))
+      
+        # # save the image stack, make the in a 2 by 4 grid
+        # n, h, w, c = image_stack.shape
+        # out_image = np.reshape(image_stack, (2, 4, h, w, c))
+        # # remove last channel
+        # out_image = out_image[:, :, :, :, 0:3]
+        # out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
+        # out_image = np.reshape(out_image, (2*h, 4*w, 3))
+        # out_image = np.uint8(out_image * 255)
+        # out_image = Image.fromarray(out_image)
+        # out_image.save('example/rendered_8_views.png')
+
+        # from pathlib import Path
+        # n, h, w, c = image_stack.shape
+        # for i in range(n):
+        #     img = image_stack[i, :, :, 0:3]
+        #     img = np.uint8(img * 255)
+        #     img = Image.fromarray(img)
+
+        #     d_img = image_stack[i, :, :, 3]
+        #     d_img = np.uint8(d_img * 255)
+        #     d_img = Image.fromarray(d_img)
+        #     # add a color map
+        #     d_img = d_img.convert('P')
+        #     d_img.putpalette([0, 0, 0, 255, 255, 255])
+        #     d_img = d_img.convert('RGB')
+
+        #     # concat the two images
+        #     img = Image.fromarray(np.hstack((np.array(img), np.array(d_img))))
+        #     p = Path(f"example/all_views_{n:02d}")
+        #     p.mkdir(parents=True, exist_ok=True)
+        #     img.save(p / f"view_{i:02d}.png")
        
         s = time.time()
         predict_2d = Predict2D(self.config, self.model, self.device)

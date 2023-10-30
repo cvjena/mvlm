@@ -64,7 +64,25 @@ class Render3D:
     # Generate nview 3D transformations and return them as a stack
     def generate_3d_transformations(self):
         n_views = self.config['data_loader']['args']['n_views']
-        return self.random_transform(size=n_views)
+
+        if n_views > 8:
+            return self.random_transform(size=n_views)
+
+        return np.array(
+            [
+                # [angle up down, angle left right, scale, tx, ty, tz]
+                # angle from above
+                [ 30,  15, 0, 0, 0, 0],
+                [ 30, -15, 0, 0, 0, 0],
+                [ 30,  45, 0, 0, 0, 0],
+                [ 30, -45, 0, 0, 0, 0],
+                # angle from below
+                [-30,  15, 0, 0, 0, 0],
+                [-30, -15, 0, 0, 0, 0],
+                [-30,  45, 0, 0, 0, 0],
+                [-30, -45, 0, 0, 0, 0],
+            ], dtype=np.float32
+        )
 
     def compute_pre_transformation(self, file_name):
         translation = [0, 0, 0]
@@ -352,8 +370,8 @@ class Render3D:
             # Save textured image
             w2if.SetInputBufferTypeToRGB()
 
-            # actor_geometry.SetVisibility(False)
-            # actor_text.SetVisibility(True)
+            actor_geometry.SetVisibility(False)
+            actor_text.SetVisibility(True)
             mapper.Modified()
             self.ren.Modified()  # force actors to have the correct visibility
             self.ren_win.Render()
@@ -372,7 +390,7 @@ class Render3D:
             # get RGB data - 3 first channels
             image_stack[i, :, :, 0:3] = np.flipud(a)
 
-            # self.ren.Modified()  # force actors to have the correct visibility
+            self.ren.Modified()  # force actors to have the correct visibility
             w2if.SetInputBufferTypeToZBuffer()
             w2if.Modified()
 
@@ -406,6 +424,14 @@ class Render3D:
             transformation_stack = self.generate_3d_transformations()
             image_stack, pd = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
             image_stack = image_stack / 255
+        elif (file_type in [".vtk", ".stl", ".ply", ".wrl"]) and image_channels == "RGB+depth":
+            transformation_stack = self.generate_3d_transformations()
+            image_stack, pd = self.render_3d_multi_rgb_geometry_depth(transformation_stack, file_name)
+            image_stack = image_stack / 255
+            # n_channels = 4
+            # image_stack = np.zeros((n_views, win_size, win_size, n_channels), dtype=np.float32)
+            # image_stack[:, :, :, 0:3] = image_stack_full[:, :, :, 0:3] / 255
+            # image_stack[:, :, :, 3:4] = image_stack_full[:, :, :, 4:5] / 255
         else:
             raise("Can not render filetype ", file_type, " using image_channels ", image_channels)
 
@@ -554,8 +580,8 @@ class Render3D:
             actor_lm.GetProperty().SetColor(0, 0, 1)
             ren.AddActor(actor_lm)
 
-        axes = vtk.vtkAxesActor()
-        ren.AddActor(axes)
+        # axes = vtk.vtkAxesActor()
+        # ren.AddActor(axes)
 
         # ren.GetActiveCamera().SetPosition(0, 0, 1)
         # ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
