@@ -26,3 +26,6 @@ def get_3d_landmarks(item: Item):
     landmarks = dm.predict_one_file(item.path_in)
     landmarks = landmarks.tolist()
     return Landmarks(landmarks=landmarks)
+
+# start with
+# uvicorn 3DMD_server:app --port 10000 --host 0.0.0.0   
