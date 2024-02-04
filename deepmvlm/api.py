@@ -57,8 +57,27 @@ models_urls_full = {
         'https://shapeml.compute.dtu.dk/Deep-MVLM/models/MVLMModel_BU_3DFE_geometry+depth_17102019_13epoch-eb18dce4.pth'
   }
 
+class TimeMixin:
+    def __init__(self):
+        self.start_time = time.time()
+        self.end_time = None
+        
+    def tic(self):
+        self.start_time = time.time()
+        
+    def toc(self):
+        self.end_time = time.time()
+        return self.end_time - self.start_time
 
-class DeepMVLM:
+    def toc_p(self):
+        return self.p_time(self.toc())
+
+    def p_time(self, t):
+        return f"{t:08.6f} s"
+    
+
+
+class DeepMVLM(TimeMixin):
     def __init__(
         self, 
         config: str, # basically the path to the config file
@@ -69,10 +88,13 @@ class DeepMVLM:
         self.render_image_stack = render_image_stack
         self.render_image_folder = render_image_folder
         
-        # self.device, self.model = self._get_device_and_load_model()
-        # self.logger = config.get_logger('predict')
+        # loading of the model
         self.device, self.model = self._get_device_and_load_model_from_url()
-        self.render_3d = Render3D(self.config)
+        
+        # loading of the renderer and the predictor
+        self.renderer_3d = Render3D(self.config)
+        self.predictor_2d = Predict2D(self.config, self.model, self.device)
+        self.estimator_3d = Utils3D(self.config)
 
     def _prepare_device(self, n_gpu_use):
         n_gpu = torch.cuda.device_count()
@@ -123,40 +145,35 @@ class DeepMVLM:
 
     def predict_one_file(self, file_name: str):
         full_s = time.time()
-        s = time.time()
-        image_stack, transform_stack, pd = self.render_3d.render_3d_file(file_name)
-        print('Render [Total]: ', self.p_time(time.time() - s))
+        self.tic()
+        image_stack, transform_stack, pd = self.renderer_3d.render_3d_file(file_name)
+        print('Render [Total]: ', self.toc_p())
         
         if self.render_image_stack:
             # TODO Check if the folder exists
             self.visualize_image_stack(image_stack, file_name)
        
-        s = time.time()
-        predict_2d = Predict2D(self.config, self.model, self.device)
-        heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)
-        print('Prediction [Total]: ', self.p_time(time.time() - s))
+        self.tic()
+        heatmap_maxima = self.predictor_2d.predict_heatmaps_from_images(image_stack)
+        print('Prediction [Total]: ', self.toc_p())
 
-        s = time.time()
-        u3d = Utils3D(self.config)
-        u3d.heatmap_maxima = heatmap_maxima
-        u3d.transformations_3d = transform_stack
-        
-        s1 = time.time()
-        u3d.compute_lines_from_heatmap_maxima()
-        print('Landmarks [0] - From Heatmaps: ', self.p_time(time.time() - s1))
+        self.tic()
+        self.estimator_3d.heatmap_maxima = heatmap_maxima
+        self.estimator_3d.transformations_3d = transform_stack
+        self.estimator_3d.compute_lines_from_heatmap_maxima()
+        print('Landmarks [0] - From Heatmaps: ', self.toc_p())
 
-        s1 = time.time() 
-        error = u3d.compute_all_landmarks_from_view_lines()
-        print('Landmarks [1] - From View Lines: ', self.p_time(time.time() - s1))
+        self.tic()
+        error = self.estimator_3d.compute_all_landmarks_from_view_lines()
+        print('Landmarks [1] - From View Lines: ', self.toc_p())
 
-        s1 = time.time()
-        u3d.project_landmarks_to_surface(pd)
-        print('Landmarks [2] - Project to Surface: ', self.p_time(time.time() - s1))
-        print('Landmarks [Total]: ', self.p_time(time.time() - s))
+        self.tic()
+        self.estimator_3d.project_landmarks_to_surface(pd)
+        print('Landmarks [2] - Project to Surface: ', self.toc_p())
         print('Landmarks [Error]: ', f"{error:08.6f}", " mm")
 
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
-        return u3d.landmarks
+        return self.estimator_3d.landmarks
     
     def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
          # save the image stack, make the in a 2 by 4 grid
@@ -171,9 +188,6 @@ class DeepMVLM:
         
         file_name = Path(file_name)
         out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
-
-    def p_time(self, t):
-        return f"{t:08.6f} s"
 
     @staticmethod
     def write_landmarks_as_vtk_points(landmarks, file_name):
