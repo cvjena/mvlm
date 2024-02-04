@@ -73,8 +73,9 @@ class Predictor2D(abc.ABC):
             The landmarks in the format (n_landmarks, n_views, 2/3)
         """
         pass
+    
 
-class PaulsenPredictor:
+class PaulsenPredictor(Predictor2D):
     def __init__(self, config):
         self.config = config
         self.device, self.model = self._get_device_and_load_model_from_url()
@@ -263,7 +264,7 @@ class PaulsenPredictor:
 
             imageio.imwrite(name_hm_maxima_2, im_marked)
 
-    def predict_heatmaps_from_images(self, image_stack):
+    def predict_landmarks_from_images(self, image_stack):
         # if cuda
         torch.set_float32_matmul_precision("medium")
         n_views = self.config['data_loader']['args']['n_views']

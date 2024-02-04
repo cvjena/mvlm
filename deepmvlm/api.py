@@ -59,7 +59,7 @@ class DeepMVLM(TimeMixin):
             self.visualize_image_stack(image_stack, file_name)
        
         self.tic()
-        heatmap_maxima = self.predictor_2d.predict_heatmaps_from_images(image_stack)
+        heatmap_maxima = self.predictor_2d.predict_landmarks_from_images(image_stack)
         print('Prediction [Total]: ', self.toc_p())
         
         # print("heatmap_maxima", heatmap_maxima)
