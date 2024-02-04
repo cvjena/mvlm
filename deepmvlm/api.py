@@ -159,6 +159,8 @@ class DeepMVLM(TimeMixin):
         self.tic()
         heatmap_maxima = self.predictor_2d.predict_heatmaps_from_images(image_stack)
         print('Prediction [Total]: ', self.toc_p())
+        
+        # print("heatmap_maxima", heatmap_maxima)
 
         self.tic()
         self.estimator_3d.heatmap_maxima = heatmap_maxima

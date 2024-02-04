@@ -1,3 +1,5 @@
+__all__ = ["Predict2D"]
+import abc
 import imageio
 import torch
 import numpy as np
@@ -7,6 +9,10 @@ import copy
 import random
 import math
 
+
+class Predictor2D(abc.ABC):
+    def __init__(self):
+        pass
 
 class Predict2D:
     def __init__(self, config, model, device):
@@ -92,21 +98,13 @@ class Predict2D:
 
     def show_image_and_heatmap(self, image, heat_map):
         heat_map = heat_map.numpy()
-        im_size = image.size(2)
-        hm_size = heat_map.shape[2]
-
-        # Super hacky way to convert gray to RGB
-        # show first image in batch
-        # TODO make it accept both grey and color images
-        i = np.zeros((im_size, im_size, 3))
-        i[:, :, 0] = image[0, :, :]
-        i[:, :, 1] = image[0, :, :]
-        i[:, :, 2] = image[0, :, :]
-
         # Generate combined heatmap image in RGB channels.
         # This must be possible to do smarter - Alas! My Python skillz are lacking
-        hm = np.zeros((hm_size, hm_size, 3))
+        hm = np.zeros((heat_map.shape[1], heat_map.shape[2], 3))
         n_lm = heat_map.shape[0]
+        
+        image_out = image[:, :, 0:3]
+        
         for lm in range(n_lm):
             r = random.random()  # generate random colour placed on the unit sphere in RGB space
             g = random.random()
@@ -119,16 +117,12 @@ class Predict2D:
             hm[:, :, 1] = hm[:, :, 1] + heat_map[lm, :, :] * g
             hm[:, :, 2] = hm[:, :, 2] + heat_map[lm, :, :] * b
 
-        im_marked = self.generate_image_with_heatmap_maxima(i, heat_map)
+        im_marked = self.generate_image_with_heatmap_maxima(image_out, heat_map)
 
-        plt.figure()
-        plt.imshow(i)
-        plt.figure()
-        plt.imshow(hm)
-        plt.figure()
-        plt.imshow(im_marked)
-        plt.axis('off')
-        plt.ioff()
+        fig, ax = plt.subplots(1, 3)
+        ax[0].imshow(image_out)
+        ax[1].imshow(hm)
+        ax[2].imshow(im_marked)
         plt.show()
 
     def write_batch_of_heatmaps(self, heatmaps, images, cur_id):
@@ -190,6 +184,7 @@ class Predict2D:
                 # heatmaps = output[1, :, :, :, :].cpu()
                 heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
                 cur_id = cur_id + batch_size
+        
         print("Prediction [0] - GPU time: ", self.p_time(time.time() - t))
         print("Prediction [0] - GPU time (mean): ", np.mean(pre_times))
         
@@ -199,6 +194,8 @@ class Predict2D:
         heatmaps = heatmaps.cpu()
         print("Prediction [1] - Copy to CPU: ", self.p_time(time.time() - t))
         
+        # self.show_image_and_heatmap(image_stack[0], heatmaps[0])
+
         t = time.time()
         self.find_maxima_in_batch_of_heatmaps(heatmaps,  heatmap_maxima)
         print("Prediction [2] - Find maxima: ", self.p_time(time.time() - t))
