@@ -148,9 +148,10 @@ if len(objFiles) == 0:
 
 # create the model for predicting the landmarks
 dm = deepmvlm.DeepMVLM(config, render_image_stack=True, render_image_folder="visualization")
-
 # create the data frame for saving the landmarks in a csv file
-columns_3D: list = [f"{i+1}.{l}" for i in range(84) for l in ["x", "y", "z"]]
+columns_3D: list = [f"{i+1}.{l}" for i in range(dm.get_lm_count()) for l in ["x", "y", "z"]]
+
+
 df = pd.DataFrame(index=columns_3D)
 
 for i, file in enumerate(objFiles):

@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from prediction import PaulsenPredictor
+from prediction import PaulsenPredictor, MediaPipePredictor
 from utils3d import ObjVTKRenderer3D, Utils3D
 
 
@@ -41,9 +41,13 @@ class DeepMVLM(TimeMixin):
         self.render_image_folder = render_image_folder
         
         # loading of the renderer and the predictor
-        self.renderer_3d = ObjVTKRenderer3D()
-        self.predictor_2d = PaulsenPredictor(self.config)
+        self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256))
+        # self.predictor_2d = PaulsenPredictor(self.config)
+        self.predictor_2d = MediaPipePredictor()
         self.estimator_3d = Utils3D(self.config)
+        
+    def get_lm_count(self) -> int:
+        return self.predictor_2d.get_lm_count()
 
     def predict_one_file(self, file_name: Path):
         full_s = time.time()
@@ -59,13 +63,13 @@ class DeepMVLM(TimeMixin):
             self.visualize_image_stack(image_stack, file_name)
        
         self.tic()
-        heatmap_maxima = self.predictor_2d.predict_landmarks_from_images(image_stack)
+        landmark_stack = self.predictor_2d.predict_landmarks_from_images(image_stack)
         print('Prediction [Total]: ', self.toc_p())
         
-        # print("heatmap_maxima", heatmap_maxima)
+        # self.predictor_2d.draw_image_with_landmarks(image_stack[0], landmark_stack[:, 0])
 
         self.tic()
-        self.estimator_3d.heatmap_maxima = heatmap_maxima
+        self.estimator_3d.heatmap_maxima = landmark_stack
         self.estimator_3d.transformations_3d = transform_stack
         self.estimator_3d.compute_lines_from_heatmap_maxima()
         print('Landmarks [0] - From Heatmaps: ', self.toc_p())
