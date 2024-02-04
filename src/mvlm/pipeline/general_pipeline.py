@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 
 from mvlm.prediction.predictor2d import Predictor2D
-from mvlm.utils import ObjVTKRenderer3D, Utils3D
+from mvlm.utils import ObjVTKRenderer3D, Estimator3D
 
 class TimeMixin:
     def __init__(self):
@@ -48,7 +48,7 @@ class Pipeline(abc.ABC, TimeMixin):
         
         # loading of the renderer and the predictor
         self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256))
-        self.estimator_3d = Utils3D(self.config)
+        self.estimator_3d = Estimator3D(self.config)
         
         self.predictor_2d: Predictor2D = None
         
@@ -73,24 +73,21 @@ class Pipeline(abc.ABC, TimeMixin):
         print('Prediction [Total]: ', self.toc_p())
         
         # self.predictor_2d.draw_image_with_landmarks(image_stack[0], landmark_stack[:, 0])
-
         self.tic()
-        self.estimator_3d.heatmap_maxima = landmark_stack
-        self.estimator_3d.transformations_3d = transform_stack
-        self.estimator_3d.compute_lines_from_heatmap_maxima()
+        lines_s, lines_e = self.estimator_3d.estimate_landmark_lines(image_stack, landmark_stack, transform_stack)
         print('Landmarks [0] - From Heatmaps: ', self.toc_p())
 
         self.tic()
-        error = self.estimator_3d.compute_all_landmarks_from_view_lines()
+        landmarks, error = self.estimator_3d.estimate_landmarks_from_lines(landmark_stack, lines_s, lines_e)
         print('Landmarks [1] - From View Lines: ', self.toc_p())
 
         self.tic()
-        self.estimator_3d.project_landmarks_to_surface(pd)
+        landmarks = self.estimator_3d.project_landmarks_to_surface(pd, landmarks)
         print('Landmarks [2] - Project to Surface: ', self.toc_p())
         print('Landmarks [Error]: ', f"{error:08.6f}", " mm")
 
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
-        return self.estimator_3d.landmarks
+        return landmarks
     
     def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
         # save the iamge stack flattened such that it close to a square
