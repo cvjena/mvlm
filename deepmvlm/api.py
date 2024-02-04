@@ -1,3 +1,4 @@
+from pathlib import Path
 import time
 import numpy as np
 import torch
@@ -58,13 +59,20 @@ models_urls_full = {
 
 
 class DeepMVLM:
-    def __init__(self, config):
+    def __init__(
+        self, 
+        config: str, # basically the path to the config file
+        render_image_stack: bool = False, # if true, the image stack will be saved
+        render_image_folder: str = None, # if not None, the image stack will be saved in this folder
+    ):
         self.config = config
+        self.render_image_stack = render_image_stack
+        self.render_image_folder = render_image_folder
+        
         # self.device, self.model = self._get_device_and_load_model()
         # self.logger = config.get_logger('predict')
         self.device, self.model = self._get_device_and_load_model_from_url()
         self.render_3d = Render3D(self.config)
-        
 
     def _prepare_device(self, n_gpu_use):
         n_gpu = torch.cuda.device_count()
@@ -174,43 +182,15 @@ class DeepMVLM:
         model.eval()
         return device, model
 
-    def predict_one_file(self, file_name):
+    def predict_one_file(self, file_name: str):
         full_s = time.time()
         s = time.time()
         image_stack, transform_stack, pd = self.render_3d.render_3d_file(file_name)
         print('Render [Total]: ', self.p_time(time.time() - s))
-      
-        # # save the image stack, make the in a 2 by 4 grid
-        # n, h, w, c = image_stack.shape
-        # out_image = np.reshape(image_stack, (2, 4, h, w, c))
-        # # remove last channel
-        # out_image = out_image[:, :, :, :, 0:3]
-        # out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
-        # out_image = np.reshape(out_image, (2*h, 4*w, 3))
-        # out_image = np.uint8(out_image * 255)
-        # out_image = Image.fromarray(out_image)
-        # out_image.save('example/rendered_8_views.png')
-
-        # from pathlib import Path
-        # n, h, w, c = image_stack.shape
-        # for i in range(n):
-        #     img = image_stack[i, :, :, 0:3]
-        #     img = np.uint8(img * 255)
-        #     img = Image.fromarray(img)
-
-        #     d_img = image_stack[i, :, :, 3]
-        #     d_img = np.uint8(d_img * 255)
-        #     d_img = Image.fromarray(d_img)
-        #     # add a color map
-        #     d_img = d_img.convert('P')
-        #     d_img.putpalette([0, 0, 0, 255, 255, 255])
-        #     d_img = d_img.convert('RGB')
-
-        #     # concat the two images
-        #     img = Image.fromarray(np.hstack((np.array(img), np.array(d_img))))
-        #     p = Path(f"example/all_views_{n:02d}")
-        #     p.mkdir(parents=True, exist_ok=True)
-        #     img.save(p / f"view_{i:02d}.png")
+        
+        if self.render_image_stack:
+            # TODO Check if the folder exists
+            self.visualize_image_stack(image_stack, file_name)
        
         s = time.time()
         predict_2d = Predict2D(self.config, self.model, self.device)
@@ -239,6 +219,20 @@ class DeepMVLM:
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
         return u3d.landmarks
     
+    def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
+         # save the image stack, make the in a 2 by 4 grid
+        n, h, w, c = image_stack.shape
+        out_image = np.reshape(image_stack, (2, 4, h, w, c))
+        # remove last channel
+        out_image = out_image[:, :, :, :, 0:3]
+        out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
+        out_image = np.reshape(out_image, (2*h, 4*w, 3))
+        out_image = np.uint8(out_image * 255)
+        out_image = Image.fromarray(out_image)
+        
+        file_name = Path(file_name)
+        out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
+
     def p_time(self, t):
         return f"{t:08.6f} s"
 
@@ -252,4 +246,4 @@ class DeepMVLM:
 
     @staticmethod
     def visualise_mesh_and_landmarks(mesh_name, landmarks=None):
-        Render3D.visualise_mesh_and_landmarks(mesh_name, landmarks)
+        Render3D.visualise_mesh_and_landmarks(mesh_name, landmarks)# 

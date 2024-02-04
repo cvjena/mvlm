@@ -13,10 +13,13 @@ parser = argparse.ArgumentParser()
 # we adapt the already existing config parser and add our arguments
 parser.add_argument('-c', '--config', default="configs/BU_3DFE-RGB+depth.json", type=str) 
 parser.add_argument('-p', '--path', type=str, required=True)
-parser.add_argument('-o', '--out', type=str, required=True)
+parser.add_argument('-o', '--out', type=str, required=False)
 config = ConfigParser(parser)
 
 args = parser.parse_args()
+
+if args.out is None:
+    args.out = args.path
 
 # handle all pathing tasks
 pathToDir = Path(args.path) # should be the path containing the meshes
@@ -37,7 +40,7 @@ if len(objFiles) == 0:
     sys.exit(1)
 
 # create the model for predicting the landmarks
-dm = deepmvlm.DeepMVLM(config)
+dm = deepmvlm.DeepMVLM(config, render_image_stack=True, render_image_folder="visualization")
 
 # create the data frame for saving the landmarks in a csv file
 columns_3D: list = [f"{i+1}.{l}" for i in range(84) for l in ["x", "y", "z"]]
