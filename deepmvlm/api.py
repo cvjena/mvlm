@@ -8,7 +8,7 @@ from torch.utils.model_zoo import load_url
 
 import model.model as module_arch
 from prediction import Predict2D
-from utils3d import Render3D, Utils3D
+from utils3d import ObjVTKRenderer3D, Utils3D
 
 models_urls = {
     'MVLMModel_DTU3D-RGB':
@@ -92,7 +92,7 @@ class DeepMVLM(TimeMixin):
         self.device, self.model = self._get_device_and_load_model_from_url()
         
         # loading of the renderer and the predictor
-        self.renderer_3d = Render3D(self.config)
+        self.renderer_3d = ObjVTKRenderer3D()
         self.predictor_2d = Predict2D(self.config, self.model, self.device)
         self.estimator_3d = Utils3D(self.config)
 
@@ -143,10 +143,13 @@ class DeepMVLM(TimeMixin):
         model.eval()
         return device, model
 
-    def predict_one_file(self, file_name: str):
+    def predict_one_file(self, file_name: Path):
         full_s = time.time()
+        if not file_name.exists():
+            print(f"File {file_name} does not exist")
+            return None
         self.tic()
-        image_stack, transform_stack, pd = self.renderer_3d.render_3d_file(file_name)
+        image_stack, transform_stack, pd = self.renderer_3d.multiview_render(file_name)
         print('Render [Total]: ', self.toc_p())
         
         if self.render_image_stack:
@@ -199,4 +202,4 @@ class DeepMVLM(TimeMixin):
 
     @staticmethod
     def visualise_mesh_and_landmarks(mesh_name, landmarks=None):
-        Render3D.visualise_mesh_and_landmarks(mesh_name, landmarks)# 
+        ObjVTKRenderer3D.visualise_mesh_and_landmarks(mesh_name, landmarks)# 

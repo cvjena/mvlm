@@ -50,7 +50,7 @@ for i, file in enumerate(objFiles):
     print(f"Current file: {file}")
 
     # predict the landmarks
-    landmarks = dm.predict_one_file(file.as_posix())
+    landmarks = dm.predict_one_file(file)
     # insert them into the dataframe and save it
     df.insert(loc=i, column=i, value=landmarks.flatten())
     # df.transpose().to_csv((pathToOut / f"{file.stem}.csv").as_posix(), na_rep="nan", index_label="index")

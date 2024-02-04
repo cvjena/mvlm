@@ -6,7 +6,7 @@ import torch
 import model.model as module_arch
 from parse_config import ConfigParser
 from utils3d import Utils3D
-from utils3d import Render3D
+from utils3d import ObjVTKRenderer3D
 from prediction import Predict2D
 import os
 import numpy as np
@@ -60,8 +60,8 @@ def get_device_and_load_model(config):
 def predict_one_subject(config, file_name):
     device, model = get_device_and_load_model(config)
 
-    render_3d = Render3D(config)
-    image_stack, transform_stack = render_3d.render_3d_file(file_name)
+    render_3d = ObjVTKRenderer3D(config)
+    image_stack, transform_stack = render_3d.multiview_render(file_name)
 
     predict_2d = Predict2D(config, model, device)
     heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)
@@ -236,8 +236,8 @@ def test_on_bu_3d_fe(config):
         if os.path.isfile(wrl_name):
             print('Computing file ', idx, ' of ', len(files))
 
-            render_3d = Render3D(config)
-            image_stack, transform_stack = render_3d.render_3d_file(wrl_name)
+            render_3d = ObjVTKRenderer3D(config)
+            image_stack, transform_stack = render_3d.multiview_render(wrl_name)
 
             predict_2d = Predict2D(config, model, device)
             heatmap_maxima = predict_2d.predict_heatmaps_from_images(image_stack)

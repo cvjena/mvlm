@@ -1,7 +1,53 @@
+__all__ = ["obj_to_actor", "Utils3D"]
+
+from pathlib import Path
+from typing import Union
 import numpy as np
 import vtk
 import os
 import time
+
+def obj_to_actor(path: Union[Path,str]) -> vtk.vtkActor:
+    if isinstance(path, str):
+        path = Path(path)
+    if not path.is_file():
+        raise ValueError(f"File {path} does not exist.")
+    
+    obj_in = vtk.vtkOBJReader()
+    obj_in.SetFileName(path.as_posix())
+    obj_in.Update()
+    
+    if obj_in.GetOutput().GetNumberOfPoints() == 0:
+        raise ValueError(f"File {path} does not contain any points.")
+
+    # TODO handle if no texture is present
+    # in our case it is only png!
+    tex_in = None
+    if path.with_suffix(".jpg").exists():
+        try:
+            tex_img = vtk.vtkJPEGReader()
+            tex_img.SetFileName(path.with_suffix(".jpg").as_posix())
+            tex_img.Update()
+            tex_in = vtk.vtkTexture()
+            tex_in.SetInterpolate(0)
+            tex_in.SetQualityTo32Bit()
+            tex_in.SetInputData(tex_img.GetOutput())
+        except Exception as e:
+            tex_in = None # if we cannot load the texture, we just ignore it
+
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputData(obj_in.GetOutput())
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    if tex_in is not None:
+        actor.SetTexture(tex_in)
+    actor.GetProperty().SetColor(1, 1, 1)
+    actor.GetProperty().SetAmbient(1.0)
+    # actor.GetProperty().SetSpecular(0)
+    actor.GetProperty().SetDiffuse(0)
+    return actor, obj_in.GetOutput()
+
 
 # FROM: https://se.mathworks.com/matlabcentral/fileexchange/37192-intersection-point-of-lines-in-3d-space?focused
 # =5235003&tab=function"
