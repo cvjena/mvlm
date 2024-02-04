@@ -1,5 +1,5 @@
 import argparse
-from parse_config import ConfigParser
+from scripts.parse_config import ConfigParser
 import os
 import socket
 import vtk

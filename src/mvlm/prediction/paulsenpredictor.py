@@ -1,21 +1,17 @@
-__all__ = ["PaulsenPredictor", "MediaPipePredictor"]
-import abc
+__all__ = ["PaulsenPredictor"]
+
 import math
-from pathlib import Path
 import random
 import time
 
 import imageio
 import matplotlib.pyplot as plt
+import mvlm.model.nnmodel as module_arch
 import numpy as np
 import torch
 from torch.utils.model_zoo import load_url
 
-import model.model as module_arch
-
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+from .predictor2d import Predictor2D
 
 models_urls = {
     'MVLMModel_DTU3D-RGB':
@@ -64,76 +60,7 @@ models_urls_full = {
         'https://shapeml.compute.dtu.dk/Deep-MVLM/models/MVLMModel_BU_3DFE_geometry+depth_17102019_13epoch-eb18dce4.pth'
   }
 
-class Predictor2D(abc.ABC):
-    def __init__(self):
-        pass
-    
-    @abc.abstractmethod
-    def predict_landmarks_from_images(self, image_stack) -> np.ndarray:
-        """
-        Predict the landmarks from a stack of images
-        
-        Returns:
-        landmarks: np.ndarray
-            The landmarks in the format (n_landmarks, n_views, 2/3)
-        """
-        pass
-    
-    @abc.abstractmethod
-    def get_lm_count(self) -> int:
-        pass
-    
-    def draw_image_with_landmarks(self, image, landmarks):
-        image_out = image[:, :, 0:3].copy()
-        
-        image_marked = image_out.copy()
-        for lm in landmarks:
-            x = int(lm[0])
-            y = int(lm[1])
-            image_marked[x-1:x+1, y-1:y+1, 0] = 0
-            image_marked[x-1:x+1, y-1:y+1, 1] = 0
-            image_marked[x-1:x+1, y-1:y+1, 2] = 1
-        
-        fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(image_out)
-        ax[1].imshow(image_marked)
-        plt.show()
-        
-        
-        
-class MediaPipePredictor(Predictor2D):
-    def __init__(self):
-        super().__init__()
-        
-        base_options = python.BaseOptions(model_asset_path=str(Path(__file__).parent / "2023-07-09_face_landmarker.task"))
-        options = vision.FaceLandmarkerOptions(
-            base_options=base_options,
-            running_mode=vision.RunningMode.IMAGE,
-            output_face_blendshapes=False, 
-            output_facial_transformation_matrixes=False,
-            num_faces=1,
-        )
-        self.detector = vision.FaceLandmarker.create_from_options(options)
-        
-    def get_lm_count(self) -> int:
-        return 478
-        
-    def predict_landmarks_from_images(self, image_stack) -> np.ndarray:
-        landmarks = np.empty((478, image_stack.shape[0], 3), dtype=np.float32)
 
-        for idx, image in enumerate(image_stack):        
-            h, w = image.shape[:2]
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=(image[...,:3] * 255).astype(np.uint8))
-
-            face_landmarker_result = self.detector.detect(mp_image)
-            if face_landmarker_result.face_landmarks:
-                face_landmarks = face_landmarker_result.face_landmarks[0]
-                for ldx, lm in enumerate(face_landmarks):
-                    # TODO somehow x and y are switched here...
-                    landmarks[ldx, idx, 0] =  lm.y * h
-                    landmarks[ldx, idx, 1] =  lm.x * w
-                    landmarks[ldx, idx, 2] = -lm.z * w
-        return landmarks
 
 class PaulsenPredictor(Predictor2D):
     def __init__(self, config):

@@ -5,7 +5,6 @@ from typing import Union
 import numpy as np
 import vtk
 import os
-import time
 
 def obj_to_actor(path: Union[Path,str]) -> vtk.vtkActor:
     if isinstance(path, str):
@@ -106,7 +105,7 @@ class Utils3D:
         self.lm_start = None
         self.lm_end = None
         self.landmarks = None
-        self.logger = config.get_logger('Utils3D')
+        # self.logger = config.get_logger('Utils3D')
 
     def read_heatmap_maxima(self, dir_name=None):
         if dir_name is None:
@@ -299,7 +298,7 @@ class Utils3D:
                 used_lines = n_inliners
 
         if used_lines == -1:
-            self.logger.warning('Ransac failed - estimating from all lines')
+            # self.logger.warning('Ransac failed - estimating from all lines')
             best_p = compute_intersection_between_lines(pa, pb)
         # else:
         # print('Ransac error ', best_error, ' with ', used_lines, ' lines')

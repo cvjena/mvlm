@@ -6,7 +6,7 @@ import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 
-from utils3d import obj_to_actor
+from .utils3d import obj_to_actor
 
 class ObjVTKRenderer3D:
     def __init__(

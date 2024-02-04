@@ -1,11 +1,11 @@
+from collections import OrderedDict
+import json
 import os
 import logging
 from pathlib import Path
 from functools import reduce
 from operator import getitem
 from datetime import datetime
-from logger import setup_logging
-from utils import read_json, write_json
 import argparse
 
 class ConfigParser:
@@ -42,9 +42,10 @@ class ConfigParser:
                 self._name = str(args.name)
 
         # load config file and apply custom cli options
-        config = read_json(self.cfg_fname)
-        self._config = _update_config(config, options, args)
+        with self.cfg_fname.open('rt') as handle:
+            config = json.load(handle, object_hook=OrderedDict)
 
+        self._config = _update_config(config, options, args)
         # set save_dir where trained model and log will be saved.
         save_dir = Path(self.config['trainer']['save_dir'])
         timestamp = datetime.now().strftime(r'%d%m%y_%H%M%S') if timestamp else ''
@@ -59,15 +60,15 @@ class ConfigParser:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
         # save updated config file to the checkpoint dir
-        write_json(self.config, self.save_dir / 'config.json')
+        # write_json(self.config, self.save_dir / 'config.json')
 
-        # configure logging module
-        setup_logging(self.log_dir)
-        self.log_levels = {
-            0: logging.WARNING,
-            1: logging.INFO,
-            2: logging.DEBUG
-        }
+        # # configure logging module
+        # setup_logging(self.log_dir)
+        # self.log_levels = {
+        #     0: logging.WARNING,
+        #     1: logging.INFO,
+        #     2: logging.DEBUG
+        # }
 
     def initialize(self, name, module, *args, **kwargs):
         """

@@ -4,7 +4,7 @@ import time
 
 import torch
 import model.model as module_arch
-from parse_config import ConfigParser
+from scripts.parse_config import ConfigParser
 from utils3d import Utils3D
 from utils3d import ObjVTKRenderer3D
 from prediction import PaulsenPredictor

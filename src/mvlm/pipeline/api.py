@@ -1,13 +1,19 @@
+"""
+Copyright (c) Computer Vision Group - FSU Jena
+
+Author: Tim Büchner
+Email: tim.buechner@uni-jena.de
+"""
+__all__ = ['DeepMVLM']
+
 import time
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from prediction import PaulsenPredictor, MediaPipePredictor
-from utils3d import ObjVTKRenderer3D, Utils3D
-
-
+from mvlm.prediction import MediaPipePredictor, PaulsenPredictor
+from mvlm.utils import ObjVTKRenderer3D, Utils3D
 
 class TimeMixin:
     def __init__(self):

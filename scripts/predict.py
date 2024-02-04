@@ -1,6 +1,6 @@
 import argparse
-from parse_config import ConfigParser
-import deepmvlm
+from scripts.parse_config import ConfigParser
+import src.mvlm.pipeline as pipeline
 from utils3d import Utils3D
 import os
 
@@ -9,7 +9,7 @@ def process_one_file(config, file_name):
     print('Processing ', file_name)
     name_lm_vtk = os.path.splitext(file_name)[0] + '_landmarks.vtk'
     name_lm_txt = os.path.splitext(file_name)[0] + '_landmarks.txt'
-    dm = deepmvlm.DeepMVLM(config)
+    dm = pipeline.DeepMVLM(config)
     landmarks = dm.predict_one_file(file_name)
     dm.write_landmarks_as_vtk_points(landmarks, name_lm_vtk)
     dm.write_landmarks_as_text(landmarks, name_lm_txt)
@@ -25,7 +25,7 @@ def process_file_list(config, file_name):
             if len(line) > 4:
                 names.append(line)
     print('Processing ', len(names), ' meshes')
-    dm = deepmvlm.DeepMVLM(config)
+    dm = pipeline.DeepMVLM(config)
     for file_name in names:
         print('Processing ', file_name)
         name_lm_txt = os.path.splitext(file_name)[0] + '_landmarks.txt'
@@ -37,7 +37,7 @@ def process_files_in_dir(config, dir_name):
     print('Processing files in  ', dir_name)
     names = Utils3D.get_mesh_files_in_dir(dir_name)
     print('Processing ', len(names), ' meshes')
-    dm = deepmvlm.DeepMVLM(config)
+    dm = pipeline.DeepMVLM(config)
     for file_name in names:
         print('Processing ', file_name)
         name_lm_txt = os.path.splitext(file_name)[0] + '_landmarks.txt'

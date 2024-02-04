@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from base import BaseModel
+# from base import BaseModel
 
 
 # 3x3 convolution with padding"
@@ -148,7 +148,7 @@ class HourGlassModule(nn.Module):
         return add5
 
 
-class MVLMModel(BaseModel):
+class MVLMModel(nn.Module):
     def __init__(self, n_landmarks=73, n_features=256, dropout_rate=0.2, image_channels="geometry"):
         super().__init__()
         self.out_features = n_landmarks

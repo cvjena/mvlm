@@ -1,9 +1,9 @@
 import fastapi
 import pydantic
 
-import deepmvlm
+import src.mvlm.pipeline as pipeline
 import argparse
-from parse_config import ConfigParser
+from scripts.parse_config import ConfigParser
 
 try:
     from xvfbwrapper import Xvfb # for headless rendering
@@ -27,7 +27,7 @@ args.config = "configs/BU_3DFE-RGB+depth.json"
 
 config = ConfigParser(args)
 
-dm = deepmvlm.DeepMVLM(config)
+dm = pipeline.DeepMVLM(config)
 
 @app.post("/landmarks3d")
 def get_3d_landmarks(item: Item):
