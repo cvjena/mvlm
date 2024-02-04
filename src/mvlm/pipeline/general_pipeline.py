@@ -4,15 +4,16 @@ Copyright (c) Computer Vision Group - FSU Jena
 Author: Tim Büchner
 Email: tim.buechner@uni-jena.de
 """
-__all__ = ['DeepMVLM']
+__all__ = ['Pipeline']
 
+import abc
 import time
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from mvlm.prediction import MediaPipePredictor, PaulsenPredictor
+from mvlm.prediction.predictor2d import Predictor2D
 from mvlm.utils import ObjVTKRenderer3D, Utils3D
 
 class TimeMixin:
@@ -34,7 +35,7 @@ class TimeMixin:
         return f"{t:08.6f} s"
 
 
-class DeepMVLM(TimeMixin):
+class Pipeline(abc.ABC, TimeMixin):
     def __init__(
         self, 
         config: str, # basically the path to the config file
@@ -47,9 +48,9 @@ class DeepMVLM(TimeMixin):
         
         # loading of the renderer and the predictor
         self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256))
-        # self.predictor_2d = PaulsenPredictor(self.config)
-        self.predictor_2d = MediaPipePredictor()
         self.estimator_3d = Utils3D(self.config)
+        
+        self.predictor_2d: Predictor2D = None
         
     def get_lm_count(self) -> int:
         return self.predictor_2d.get_lm_count()
