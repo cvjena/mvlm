@@ -82,7 +82,7 @@ class DeepMVLM(TimeMixin):
         self, 
         config: str, # basically the path to the config file
         render_image_stack: bool = False, # if true, the image stack will be saved
-        render_image_folder: str = None, # if not None, the image stack will be saved in this folder
+        render_image_folder: Path = None, # if not None, the image stack will be saved in this folder
     ):
         self.config = config
         self.render_image_stack = render_image_stack

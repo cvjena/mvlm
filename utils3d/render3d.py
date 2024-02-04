@@ -21,7 +21,6 @@ def no_transform():
 class Render3D:
     def __init__(self, config):
         self.config = config
-        self.logger = config.get_logger('Render3D')
         
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
