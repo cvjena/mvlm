@@ -26,7 +26,6 @@ class TimeMixin:
 
     def p_time(self, t):
         return f"{t:08.6f} s"
-    
 
 
 class DeepMVLM(TimeMixin):
@@ -87,15 +86,34 @@ class DeepMVLM(TimeMixin):
         return self.estimator_3d.landmarks
     
     def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
-         # save the image stack, make the in a 2 by 4 grid
+        # save the iamge stack flattened such that it close to a square
         n, h, w, c = image_stack.shape
-        out_image = np.reshape(image_stack, (2, 4, h, w, c))
-        # remove last channel
-        out_image = out_image[:, :, :, :, 0:3]
-        out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
-        out_image = np.reshape(out_image, (2*h, 4*w, 3))
+        # closest nrows and ncols
+        nrows = int(np.sqrt(n))
+        ncols = n // nrows
+        if nrows * ncols < n:
+            ncols += 1
+        # create the image
+        out_image = np.zeros((nrows * h, ncols * w, 3))
+        for i in range(n):
+            r = i // ncols
+            c = i % ncols
+            out_image[r*h:(r+1)*h, c*w:(c+1)*w, :] = image_stack[i, :, :, 0:3]
         out_image = np.uint8(out_image * 255)
         out_image = Image.fromarray(out_image)
         
         file_name = Path(file_name)
-        out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
+        out_image.save(f'{self.render_image_folder}/{file_name.stem}.png')
+
+        #  # save the image stack, make the in a 2 by 4 grid
+        # n, h, w, c = image_stack.shape
+        # out_image = np.reshape(image_stack, (2, 4, h, w, c))
+        # # remove last channel
+        # out_image = out_image[:, :, :, :, 0:3]
+        # out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
+        # out_image = np.reshape(out_image, (2*h, 4*w, 3))
+        # out_image = np.uint8(out_image * 255)
+        # out_image = Image.fromarray(out_image)
+        
+        # file_name = Path(file_name)
+        # out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
