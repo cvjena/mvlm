@@ -62,7 +62,7 @@ class Render3D:
     # Generate nview 3D transformations and return them as a stack
     def generate_3d_transformations(self):
         n_views = self.config['data_loader']['args']['n_views']
-
+        
         if n_views > 8:
             return self.random_transform(size=n_views)
 

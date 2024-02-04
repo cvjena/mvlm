@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+import numpy as np
 
 import pandas as pd
 
@@ -10,7 +11,7 @@ from parse_config import ConfigParser
 parser = argparse.ArgumentParser()
 
 # we adapt the already existing config parser and add our arguments
-parser.add_argument('-c', '--config', default="configs/BU_3DFE-RGB.json", type=str) 
+parser.add_argument('-c', '--config', default="configs/BU_3DFE-RGB+depth.json", type=str) 
 parser.add_argument('-p', '--path', type=str, required=True)
 parser.add_argument('-o', '--out', type=str, required=True)
 config = ConfigParser(parser)
@@ -49,4 +50,7 @@ for i, file in enumerate(objFiles):
     landmarks = dm.predict_one_file(file.as_posix())
     # insert them into the dataframe and save it
     df.insert(loc=i, column=i, value=landmarks.flatten())
-    df.transpose().to_csv((pathToOut / "landmarks3D.csv").as_posix(), na_rep="nan", index_label="index")
+    # df.transpose().to_csv((pathToOut / f"{file.stem}.csv").as_posix(), na_rep="nan", index_label="index")
+
+    # np.save((pathToOut / f"{file.stem}.npy").as_posix(), landmarks)
+    np.savetxt((pathToOut / f"{file.stem}.txt").as_posix(), landmarks, delimiter=",")
