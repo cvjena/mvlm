@@ -9,17 +9,6 @@ from vtk.util.numpy_support import vtk_to_numpy
 
 from utils3d import obj_to_actor
 
-
-def no_transform():
-    rx = 0
-    ry = 0
-    rz = 0
-    scale = 1
-    tx = 0
-    ty = 0
-    return rx, ry, rz, scale, tx, ty
-
-# 
 class ObjVTKRenderer3D:
     def __init__(
         self,
@@ -123,6 +112,8 @@ class ObjVTKRenderer3D:
         
         image_stack = np.empty((self.n_views, *self.image_size, 4), dtype=np.float32)
         actor, pd = obj_to_actor(file_name)
+        self.ren.AddActor(actor)
+        print("Render [1] - Setup time: ", f"{time.time() - tt:08.6f} s")
 
         t = vtk.vtkTransform()
         t.Identity()
@@ -138,9 +129,6 @@ class ObjVTKRenderer3D:
         mapper.SetInputData(trans.GetOutput())
         actor.SetMapper(mapper)
         
-        self.ren.AddActor(actor)
-
-        print("Render [1] - Setup time: ", f"{time.time() - tt:08.6f} s")
         tt = time.time()
         for i, (rx, ry, rz, *_) in enumerate(transform_stack):
             t.Identity()
