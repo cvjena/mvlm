@@ -1,5 +1,6 @@
 __all__ = ["PaulsenPredictor"]
 
+from pathlib import Path
 import mvlm.model.nnmodel as module_arch
 import numpy as np
 import torch
@@ -61,11 +62,17 @@ class PaulsenPredictor(Predictor2D):
         config,
         batch_size=2,
         selection_method="simple",
+        # model parameters
+        model_type: str = "MVLMModel_BU_3DFE",
+        n_gpus = 1,
     ):
         super().__init__()
         self.config = config
         self.batch_size = batch_size
         self.selection_method = selection_method
+        
+        self.model_type = model_type
+        self.n_gpus = n_gpus
       
         self.device, self.model = self._get_device_and_load_model_from_url()
         
@@ -86,17 +93,16 @@ class PaulsenPredictor(Predictor2D):
 
     def _get_device_and_load_model_from_url(self):
         print('Initialising model')
-        model = self.config.initialize('arch', module_arch)
+        torch_model = self.config.initialize('arch', module_arch)
 
         print('Loading checkpoint')
-        model_dir = self.config['trainer']['save_dir'] + "/trained/"
-        model_name = self.config['name']
-        image_channels = self.config['data_loader']['args']['image_channels']
-        name_channels = model_name + '-' + image_channels
-        check_point_name = models_urls[name_channels]
+        model_dir = Path(__file__).parent / "models"  #self.config['trainer']['save_dir'] + "/trained/"
+        model_indetification = self.model_type + '-' + "RGB+depth"
+        
+        check_point_name = models_urls[model_indetification]
 
         print('Getting device')
-        device, device_ids = self._prepare_device(self.config['n_gpu'])
+        device, device_ids = self._prepare_device(self.n_gpus)
         checkpoint = load_url(check_point_name, model_dir, map_location=device)
 
         # Write clean model - should only be done once for translation of models
@@ -112,12 +118,12 @@ class PaulsenPredictor(Predictor2D):
             state_dict = checkpoint
 
         if len(device_ids) > 1:
-            model = torch.nn.DataParallel(model, device_ids=device_ids)
+            torch_model = torch.nn.DataParallel(torch_model, device_ids=device_ids)
 
-        model.load_state_dict(state_dict)
-        model = model.to(device)
-        model.eval()
-        return device, model
+        torch_model.load_state_dict(state_dict)
+        torch_model = torch_model.to(device)
+        torch_model.eval()
+        return device, torch_model
 
 
     def find_heat_map_maxima(self, heatmaps):

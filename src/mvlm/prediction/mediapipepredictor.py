@@ -12,7 +12,7 @@ class MediaPipePredictor(Predictor2D):
     def __init__(self):
         super().__init__()
         
-        base_options = python.BaseOptions(model_asset_path=str(Path(__file__).parent / "2023-07-09_face_landmarker.task"))
+        base_options = python.BaseOptions(model_asset_path=str(Path(__file__).parent / "models/2023-07-09_face_landmarker.task"))
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
             running_mode=vision.RunningMode.IMAGE,
