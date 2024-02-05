@@ -66,9 +66,13 @@ class Pipeline(abc.ABC, TimeMixin):
             self.visualize_image_stack(image_stack, file_name)
        
         self.tic()
-        landmark_stack = self.predictor_2d.predict_landmarks_from_images(image_stack)
+        landmark_stack, valid = self.predictor_2d.predict_landmarks_from_images(image_stack)
         print('Prediction [Total]: ', self.toc_p())
         
+        landmark_stack = landmark_stack[:, valid, :]
+        transform_stack = transform_stack[valid]
+        image_stack = image_stack[valid]
+
         # self.predictor_2d.draw_image_with_landmarks(image_stack[0], landmark_stack[:, 0])
         self.tic()
         lines_s, lines_e = self.estimator_3d.estimate_landmark_lines(image_stack, landmark_stack, transform_stack)

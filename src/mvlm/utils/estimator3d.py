@@ -20,11 +20,11 @@ class Estimator3D:
         self, 
         mode: str = "quantile",
         threshold_quantile: float = 0.5,
-        threshold_abs: float = 0.5,
+        threshold_absolute: float = 0.5,
     ):
         self.mode = mode
         self.threshold_quantile = threshold_quantile
-        self.threshold_abs = threshold_abs
+        self.threshold_absolute = threshold_absolute
 
     # Each maxima in a heatmap corresponds to a line in 3D space of the original 3D shape
     # This function transforms the maxima to (start point, end point) pairs
@@ -149,7 +149,7 @@ class Estimator3D:
     # return the lines that correspond to a high valued maxima in the heatmap
     def filter_lines_based_on_heatmap_value_using_absolute_value(self, landmark_stack, lm_no, pa, pb):
         max_values = landmark_stack[lm_no, :, 2]
-        idx = max_values > self.threshold_abs
+        idx = max_values > self.threshold_absolute
         pa_new = pa[idx]
         pb_new = pb[idx]
         return pa_new, pb_new
@@ -172,7 +172,7 @@ class Estimator3D:
             
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
-                raise Exception("Not enough valid view lines for landmark lm_no")
+                raise Exception("Not enough valid view lines for landmark lm_no", lm_no, len(pa))
             
             p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
             sum_error = sum_error + best_error

@@ -178,6 +178,7 @@ class PaulsenPredictor(Predictor2D):
         n_landmarks = self.get_lm_count()
         
         heatmap_maxima = np.empty((n_landmarks, n_views, 3))
+        valid = np.ones((n_views), dtype=bool)         
             
         # move all images to the GPU
         image_stack_d = torch.from_numpy(image_stack)
@@ -193,7 +194,7 @@ class PaulsenPredictor(Predictor2D):
                 heatmaps[cur_id:cur_id + self.batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
                 cur_id = cur_id + self.batch_size
 
-        return self.find_maxima_in_batch_of_heatmaps(heatmaps.cpu(), heatmap_maxima)
+        return self.find_maxima_in_batch_of_heatmaps(heatmaps.cpu(), heatmap_maxima), valid
 
 ### Actural Torch Model ###
 

@@ -9,13 +9,15 @@ class Predictor2D(abc.ABC):
         pass
     
     @abc.abstractmethod
-    def predict_landmarks_from_images(self, image_stack) -> np.ndarray:
+    def predict_landmarks_from_images(self, image_stack: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Predict the landmarks from a stack of images
         
         Returns:
         landmarks: np.ndarray
-            The landmarks in the format (n_landmarks, n_views, 2/3)
+            The landmarks in the format (n_landmarks, n_views, 3)
+        valid: np.ndarray
+            The validity of the landmarks in the format (n_views) (True/False)
         """
         pass
     

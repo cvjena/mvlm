@@ -27,17 +27,22 @@ class MediaPipePredictor(Predictor2D):
         
     def predict_landmarks_from_images(self, image_stack) -> np.ndarray:
         landmarks = np.empty((478, image_stack.shape[0], 3), dtype=np.float32)
-
+        valid = np.ones((image_stack.shape[0]), dtype=bool)
+        
         for idx, image in enumerate(image_stack):        
             h, w = image.shape[:2]
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=(image[...,:3] * 255).astype(np.uint8))
 
             face_landmarker_result = self.detector.detect(mp_image)
-            if face_landmarker_result.face_landmarks:
-                face_landmarks = face_landmarker_result.face_landmarks[0]
-                for ldx, lm in enumerate(face_landmarks):
-                    # TODO somehow x and y are switched here...
-                    landmarks[ldx, idx, 0] =  lm.y * h
-                    landmarks[ldx, idx, 1] =  lm.x * w
-                    landmarks[ldx, idx, 2] = -lm.z * w
-        return landmarks
+            if not face_landmarker_result.face_landmarks:
+                landmarks[:, idx, :] = np.nan
+                valid[idx] = False
+                continue    
+            
+            face_landmarks = face_landmarker_result.face_landmarks[0]
+            for ldx, lm in enumerate(face_landmarks):
+                # TODO somehow x and y are switched here...
+                landmarks[ldx, idx, 0] =  lm.y * h
+                landmarks[ldx, idx, 1] =  lm.x * w
+                landmarks[ldx, idx, 2] = -lm.z * w
+        return landmarks, valid
