@@ -12,7 +12,7 @@ from mvlm.pipeline.mediapipe_pipeline import MediaPipePipeline
 from mvlm.pipeline.paulsen_pipeline import BU3DFEPipeline, DTU3DPipeline
 from mvlm.pipeline.face_alignment_pipeline import FaceAlignmentPipeline
 
-def create_pipeline(name: str, render_image_stack: bool = False, render_image_folder: str = None):
+def create_pipeline(name: str, kwargs: dict(str, object)):
     """
     Create a pipeline object based on the specified name.
 
@@ -30,14 +30,14 @@ def create_pipeline(name: str, render_image_stack: bool = False, render_image_fo
     name = name.lower()
     
     if name == "mediapipe":
-        return MediaPipePipeline(render_image_stack, render_image_folder)
+        return MediaPipePipeline(**kwargs)
     elif name == "bu3dfe":
-        return BU3DFEPipeline(render_image_stack, render_image_folder)
+        return BU3DFEPipeline(**kwargs)
     elif name == "dlib":
-        return DlibPipeline(render_image_stack, render_image_folder)
+        return DlibPipeline(**kwargs)
     elif name == "dtu3d":
-        return DTU3DPipeline(render_image_stack, render_image_folder)
+        return DTU3DPipeline(**kwargs)
     elif name == "face_alignment":
-        return FaceAlignmentPipeline(render_image_stack, render_image_folder)
+        return FaceAlignmentPipeline(**kwargs)
     else:
         raise ValueError(f"Unknown pipeline: {name}")
