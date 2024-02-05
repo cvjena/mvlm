@@ -224,12 +224,12 @@ class Estimator3D:
     def transform_landmarks_to_original_space(self, landmarks, t):
         points = vtk.vtkPoints()
         pd = vtk.vtkPolyData()
-        # verts = vtk.vtkCellArray()
+        verts = vtk.vtkCellArray()
 
         for lm in landmarks:
             pid = points.InsertNextPoint(lm)
-            # verts.InsertNextCell(1)
-            # verts.InsertCellPoint(pid)
+            verts.InsertNextCell(1)
+            verts.InsertCellPoint(pid)
         pd.SetPoints(points)
 
         trans = vtk.vtkTransformPolyDataFilter()
