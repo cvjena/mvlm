@@ -41,8 +41,8 @@ if len(objFiles) == 0:
     sys.exit(1)
 
 # create the model for predicting the landmarks
-dm = mvlm.pipeline.MediaPipePipeline(render_image_stack=True, render_image_folder="visualization")
-# dm = mvlm.pipeline.PaulsenPipeline(config, render_image_stack=True, render_image_folder="visualization")
+# dm = mvlm.pipeline.MediaPipePipeline(render_image_stack=True, render_image_folder="visualization")
+dm = mvlm.pipeline.PaulsenPipeline(config, render_image_stack=True, render_image_folder="visualization")
 # create the data frame for saving the landmarks in a csv file
 columns_3D: list = [f"{i+1}.{l}" for i in range(dm.get_lm_count()) for l in ["x", "y", "z"]]
 
