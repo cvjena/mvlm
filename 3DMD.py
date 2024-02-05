@@ -35,7 +35,8 @@ if len(objFiles) == 0:
     sys.exit(1)
 
 # create the model for predicting the landmarks
-dm = mvlm.pipeline.MediaPipePipeline(render_image_stack=True, render_image_folder="visualization")
+dm = mvlm.pipeline.create_pipeline("mediapipe", render_image_stack=True, render_image_folder="visualization")
+
 # dm = mvlm.pipeline.BU3DFEPipeline(render_image_stack=True, render_image_folder="visualization")
 # dm = mvlm.pipeline.DTU3DPipeline(render_image_stack=True, render_image_folder="visualization")
 # dm = mvlm.pipeline.DlibPipeline(render_image_stack=True, render_image_folder="visualization")
