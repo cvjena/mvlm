@@ -105,18 +105,7 @@ class PaulsenPredictor(Predictor2D):
         print('Getting device')
         device, device_ids = self._prepare_device(self.n_gpus)
         checkpoint = load_url(check_point_name, model_dir, map_location=device)
-
-        # Write clean model - should only be done once for translation of models
-        # base_name = os.path.basename(os.path.splitext(check_point_name)[0])
-        # clean_file = 'saved/trained/' + base_name + '_only_state_dict.pth'
-        # torch.save(checkpoint['state_dict'], clean_file)
-
-        state_dict = []
-        # Hack until all dicts are transformed
-        if check_point_name.find('only_state_dict') == -1:
-            state_dict = checkpoint['state_dict']
-        else:
-            state_dict = checkpoint
+        state_dict = checkpoint['state_dict'] if check_point_name.find('only_state_dict') == -1 else checkpoint
 
         if len(device_ids) > 1:
             torch_model = torch.nn.DataParallel(torch_model, device_ids=device_ids)
@@ -208,53 +197,31 @@ class PaulsenPredictor(Predictor2D):
 
 ### Actural Torch Model ###
 
-# 3x3 convolution with padding"
-def conv3x3(in_planes, out_planes, strd=1, padding=1, bias=False):
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=strd, padding=padding, bias=bias)
-
 # Residual block
 # Inspired from https://github.com/1adrianb/face-alignment
 class ResidualBlock(nn.Module):
-    def __init__(self, in_planes, out_planes):
+    def __init__(self, in_planes:int, out_planes:int):
         super().__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv1 = conv3x3(in_planes, int(out_planes / 2))
+        self.conv1 = nn.Conv2d(in_planes, out_planes // 2, kernel_size=3, stride=1, padding=1, bias=False)
+        
         self.bn2 = nn.BatchNorm2d(int(out_planes / 2))
-        self.conv2 = conv3x3(int(out_planes / 2), int(out_planes / 4))
+        self.conv2 = nn.Conv2d(out_planes // 2, out_planes // 4, kernel_size=3, stride=1, padding=1, bias=False)
+        
         self.bn3 = nn.BatchNorm2d(int(out_planes / 4))
-        self.conv3 = conv3x3(int(out_planes / 4), int(out_planes / 4))
+        self.conv3 = nn.Conv2d(out_planes // 4, out_planes // 4, kernel_size=3, stride=1, padding=1, bias=False)
+        
+        self.resample = nn.Identity()
         if in_planes != out_planes:
-            self.resample = nn.Sequential(
-                nn.BatchNorm2d(in_planes),
-                nn.ReLU(True),
-                nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=1, bias=False),
-            )
-        else:
-            self.resample = None
+            self.resample = nn.Sequential(nn.BatchNorm2d(in_planes), nn.ReLU(True), nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=1, bias=False))
 
     def forward(self, x):
         residual = x
-        # TODO CLEAN THIS UP
-        out1 = self.bn1(x)
-        out1 = F.relu(out1, True)
-        out1 = self.conv1(out1)
-
-        out2 = self.bn2(out1)
-        out2 = F.relu(out2, True)
-        out2 = self.conv2(out2)
-
-        out3 = self.bn3(out2)
-        out3 = F.relu(out3, True)
-        out3 = self.conv3(out3)
-
-        out3 = torch.cat((out1, out2, out3), 1)
-
-        if self.resample is not None:
-            residual = self.resample(residual)
-
-        out3 += residual
-
-        return out3
+        out1 = self.conv1(F.relu(self.bn1   (x), True))
+        out2 = self.conv2(F.relu(self.bn2(out1), True))
+        out3 = self.conv3(F.relu(self.bn3(out2), True))
+        residual = self.resample(residual)
+        return torch.cat((out1, out2, out3), 1) + residual
 
 class HourGlassModule(nn.Module):
     def __init__(self, num_features):
@@ -385,10 +352,6 @@ class MVLMModel(nn.Module):
         self.conv11 = nn.Conv2d(self.out_features, self.out_features, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
-        # assuming input images are 256 x 256 x nchannels
-        # and self.features = 256
-        # self.out_features = NL (number of landmarks)
-        # input: x (256 x 256 x nchannels) (nchannels = 1 for geometry only)
         x = self.conv1(x)  # x: (256 x 256 x 64)
         x = self.bn1(x)
         x = F.relu(x)
@@ -414,10 +377,6 @@ class MVLMModel(nn.Module):
         x = self.conv10(x)  # x: (128 x 128 x NL)
         up_temp2 = F.interpolate(x, scale_factor=2, mode='nearest')  # up_temp2 (256 x 256 x NL)
         up_out2 = self.conv11(up_temp2)  # up_out2 (256 x 256 x NL)
-
-        # outputs = [up_out, up_out2]
-        #        outputs.append(up_out)
-        #       outputs.append(up_out2)
 
         outputs = torch.stack([up_out, up_out2])
         return outputs

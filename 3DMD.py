@@ -4,9 +4,6 @@ from pathlib import Path
 import numpy as np
 
 import pandas as pd
-
-from scripts.parse_config import ConfigParser
-
 import mvlm
 
 parser = argparse.ArgumentParser()
@@ -15,8 +12,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config', default="configs/BU_3DFE-RGB+depth.json", type=str) 
 parser.add_argument('-p', '--path', type=str, required=True)
 parser.add_argument('-o', '--out', type=str, required=False)
-config = ConfigParser(parser)
-
 args = parser.parse_args()
 
 if args.out is None:
