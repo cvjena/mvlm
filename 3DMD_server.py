@@ -1,17 +1,15 @@
 import fastapi
 import pydantic
 
-import src.mvlm.pipeline as pipeline
-import argparse
-from scripts.parse_config import ConfigParser
+import xvfbwrapper # for headless rendering
+from mvlm import pipeline
 
 try:
-    from xvfbwrapper import Xvfb # for headless rendering
-    vdisplay = Xvfb(width=256, height=256)
+    vdisplay = xvfbwrapper.Xvfb(width=256, height=256)
     vdisplay.start()
     print("Started virtual display with Xvfb")
-except:
-    print("Could not start virtual display with Xvfb")
+except Exception as e:
+    print("Could not start virtual display with Xvfb", e)
     pass
 
 class Item(pydantic.BaseModel):
@@ -21,13 +19,7 @@ class Landmarks(pydantic.BaseModel):
     landmarks: list[list[float]]
 
 app = fastapi.FastAPI()
-
-args = argparse.Namespace()
-args.config = "configs/BU_3DFE-RGB+depth.json"
-
-config = ConfigParser(args)
-
-dm = pipeline.DeepMVLM(config)
+dm = pipeline.PaulsenPipeline()
 
 @app.post("/landmarks3d")
 def get_3d_landmarks(item: Item):
