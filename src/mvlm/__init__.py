@@ -1,3 +1,3 @@
-__all__ = ['model', 'pipeline', 'utils', 'prediction']
+__all__ = ['pipeline', 'utils', 'prediction']
 
-from mvlm import model, pipeline, utils, prediction
+from mvlm import pipeline, utils, prediction
