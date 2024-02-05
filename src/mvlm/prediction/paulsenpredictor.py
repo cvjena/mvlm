@@ -1,11 +1,5 @@
 __all__ = ["PaulsenPredictor"]
 
-import math
-import random
-import time
-
-import imageio
-import matplotlib.pyplot as plt
 import mvlm.model.nnmodel as module_arch
 import numpy as np
 import torch
@@ -61,11 +55,18 @@ models_urls_full = {
   }
 
 
-
 class PaulsenPredictor(Predictor2D):
-    def __init__(self, config):
+    def __init__(
+        self, 
+        config,
+        batch_size=2,
+        selection_method="simple",
+    ):
         super().__init__()
         self.config = config
+        self.batch_size = batch_size
+        self.selection_method = selection_method
+      
         self.device, self.model = self._get_device_and_load_model_from_url()
         
     def get_lm_count(self) -> int:
@@ -119,7 +120,7 @@ class PaulsenPredictor(Predictor2D):
         return device, model
 
 
-    def find_heat_map_maxima(self, heatmaps, sigma=None, method="simple"):
+    def find_heat_map_maxima(self, heatmaps):
         """ heatmaps: (#LM, hm_size,hm_size) """
         out_dim = heatmaps.shape[0]  # number of landmarks
         hm_size = heatmaps.shape[1]
@@ -128,7 +129,7 @@ class PaulsenPredictor(Predictor2D):
 
         # TODO Need to figure out why x and y are switched here...probably something with row, col
         # simple: Use only maximum pixel value in HM
-        if method == "simple":
+        if self.selection_method == "simple":
             for k in range(out_dim):
                 highest_idx = np.unravel_index(np.argmax(heatmaps[k, :, :]), (hm_size, hm_size))
                 px = highest_idx[0]
@@ -136,7 +137,7 @@ class PaulsenPredictor(Predictor2D):
                 value = heatmaps[k, px, py]  # TODO check if values is equal to np.max(hm)
                 coordinates[k] = (px - 1, py - 0.5, value)  # TODO find out why it works with the subtractions
 
-        if method == "moment":
+        if self.selection_method == "moment":
             for k in range(out_dim):
                 hm = heatmaps[k, :, :]
                 highest_idx = np.unravel_index(np.argmax(hm), (hm_size, hm_size))
@@ -171,97 +172,17 @@ class PaulsenPredictor(Predictor2D):
         heatmaps = heatmaps.numpy()
         batch_size = heatmaps.shape[0]
         for idx in range(batch_size):
-            heatmap_maxima[:, idx, :] = self.find_heat_map_maxima(heatmaps[idx], method='simple')
+            heatmap_maxima[:, idx, :] = self.find_heat_map_maxima(heatmaps[idx])
+        return heatmap_maxima
 
-    def generate_image_with_heatmap_maxima(self, image, heat_map):
-        im_size = image.shape[0]
-        hm_size = heat_map.shape[2]
-        i = image.copy()
-
-        coordinates = self.find_heat_map_maxima(heat_map, method='moment')
-
-        # the predicted heat map is sometimes smaller than the input image
-        factor = im_size / hm_size
-        for c in range(coordinates.shape[0]):
-            px = coordinates[c][0]
-            py = coordinates[c][1]
-            if not np.isnan(px) and not np.isnan(py):
-                cx = int(px * factor)
-                cy = int(py * factor)
-                for x in range(cx - 2, cx + 2):
-                    for y in range(cy - 2, cy + 2):
-                        i[x, y, 0] = 0
-                        i[x, y, 1] = 0
-                        i[x, y, 2] = 1  # blue
-        return i
-
-    def show_image_and_heatmap(self, image, heat_map):
-        heat_map = heat_map.numpy()
-        # Generate combined heatmap image in RGB channels.
-        # This must be possible to do smarter - Alas! My Python skillz are lacking
-        hm = np.zeros((heat_map.shape[1], heat_map.shape[2], 3))
-        n_lm = heat_map.shape[0]
+    def predict_landmarks_from_images(self, image_stack: np.ndarray) -> np.ndarray:
+        if self.device.type == 'cuda':
+            torch.set_float32_matmul_precision("medium")
+        n_views = image_stack.shape[0]
+        n_landmarks = self.get_lm_count()
         
-        image_out = image[:, :, 0:3]
-        
-        for lm in range(n_lm):
-            r = random.random()  # generate random colour placed on the unit sphere in RGB space
-            g = random.random()
-            b = random.random()
-            length = math.sqrt(r * r + g * g + b * b)
-            r = r / length
-            g = g / length
-            b = b / length
-            hm[:, :, 0] = hm[:, :, 0] + heat_map[lm, :, :] * r
-            hm[:, :, 1] = hm[:, :, 1] + heat_map[lm, :, :] * g
-            hm[:, :, 2] = hm[:, :, 2] + heat_map[lm, :, :] * b
-
-        im_marked = self.generate_image_with_heatmap_maxima(image_out, heat_map)
-
-        fig, ax = plt.subplots(1, 3)
-        ax[0].imshow(image_out)
-        ax[1].imshow(hm)
-        ax[2].imshow(im_marked)
-        plt.show()
-
-    def write_batch_of_heatmaps(self, heatmaps, images, cur_id):
-        batch_size = heatmaps.shape[0]
-
-        for idx in range(batch_size):
-            name_hm_maxima = str(self.config.temp_dir / ('heatmap' + str(cur_id + idx) + '.png'))
-            name_hm_maxima_2 = str(self.config.temp_dir / ('heatmap_max' + str(cur_id + idx) + '.png'))
-            heatmap = heatmaps[idx, :, :, :]
-            heatmap = heatmap.numpy()
-            hm_size = heatmap.shape[2]
-
-            hm = np.zeros((hm_size, hm_size, 3))
-            n_lm = heatmap.shape[0]
-            for lm in range(n_lm):
-                r = random.random()  # generate random colour placed on the unit sphere in RGB space
-                g = random.random()
-                b = random.random()
-                length = math.sqrt(r * r + g * g + b * b)
-                r = r / length
-                g = g / length
-                b = b / length
-                hm[:, :, 0] = hm[:, :, 0] + heatmap[lm, :, :] * r
-                hm[:, :, 1] = hm[:, :, 1] + heatmap[lm, :, :] * g
-                hm[:, :, 2] = hm[:, :, 2] + heatmap[lm, :, :] * b
-
-            imageio.imwrite(name_hm_maxima, hm)
-
-            im = images[idx]
-            im_marked = self.generate_image_with_heatmap_maxima(im, heatmap)
-
-            imageio.imwrite(name_hm_maxima_2, im_marked)
-
-    def predict_landmarks_from_images(self, image_stack):
-        # if cuda
-        torch.set_float32_matmul_precision("medium")
-        n_views = self.config['data_loader']['args']['n_views']
-        batch_size = self.config['data_loader']['args']['batch_size']
-        n_landmarks = self.config['arch']['args']['n_landmarks']
         heatmap_maxima = np.empty((n_landmarks, n_views, 3))
+            
         # move all images to the GPU
         image_stack_d = torch.from_numpy(image_stack)
         image_stack_d = image_stack_d.to(self.device)
@@ -269,36 +190,11 @@ class PaulsenPredictor(Predictor2D):
   
         heatmaps = torch.zeros((n_views, n_landmarks, 256, 256), device=self.device)
         cur_id = 0
-        t = time.time()
-        pre_times = []
         with torch.no_grad():
-            while cur_id + batch_size <= n_views:
-                cur_images = image_stack_d[cur_id:cur_id + batch_size, :, :, :]
-                # print('predicting heatmaps for batch ', cur_id, ' to ', cur_id + batch_size)
-                # data = data.to(self.device)
-                tt = time.time()
+            while cur_id + self.batch_size <= n_views:
+                cur_images = image_stack_d[cur_id:cur_id + self.batch_size, :, :, :]
                 output = self.model(cur_images)
-                pre_times.append(time.time() - tt)
-                # output [stack (0 or 1), batch, lm, hm_size, hm_size]
-                # heatmaps = output[1, :, :, :, :].cpu()
-                heatmaps[cur_id:cur_id + batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
-                cur_id = cur_id + batch_size
-        
-        print("Prediction [0] - GPU time: ", self.p_time(time.time() - t))
-        print("Prediction [0] - GPU time (mean): ", np.mean(pre_times))
-        
-        if self.device.type == 'cuda':
-            torch.cuda.synchronize()
-        t = time.time()        
-        heatmaps = heatmaps.cpu()
-        print("Prediction [1] - Copy to CPU: ", self.p_time(time.time() - t))
-        
-        # self.show_image_and_heatmap(image_stack[0], heatmaps[0])
+                heatmaps[cur_id:cur_id + self.batch_size, :, :, :] = output[1, :, :, :, :].squeeze(0)
+                cur_id = cur_id + self.batch_size
 
-        t = time.time()
-        self.find_maxima_in_batch_of_heatmaps(heatmaps,  heatmap_maxima)
-        print("Prediction [2] - Find maxima: ", self.p_time(time.time() - t))
-        return heatmap_maxima
-    
-    def p_time(self, t):
-        return f"{t:08.6f} s"
+        return self.find_maxima_in_batch_of_heatmaps(heatmaps.cpu(), heatmap_maxima)
