@@ -1,5 +1,6 @@
-__all__ = ["BU3DFEPredictor"]
+__all__ = ["BU3DFEPredictor", "DTU3DPredictor"]
 
+import abc
 from pathlib import Path
 
 import numpy as np
@@ -34,7 +35,6 @@ models_urls = {
         'https://shapeml.compute.dtu.dk/Deep-MVLM/models/MVLMModel_BU_3DFE_geometry+depth_17102019_13epoch_only_state_dict-aa34a6d68.pth'
   }
 
-
 models_urls_full = {
     'MVLMModel_DTU3D-RGB':
         'https://shapeml.compute.dtu.dk/Deep-MVLM/models/MVLMModel_DTU3D_RGB_07092019-c1cc3d59.pth',
@@ -58,28 +58,30 @@ models_urls_full = {
         'https://shapeml.compute.dtu.dk/Deep-MVLM/models/MVLMModel_BU_3DFE_geometry+depth_17102019_13epoch-eb18dce4.pth'
   }
 
-
-class BU3DFEPredictor(Predictor2D):
+class PaulsenModel(Predictor2D):
     def __init__(
         self,
+        model_type: str,
+        image_mode: str,
+        n_gpus = 1,
         batch_size=2,
         selection_method="simple",
         # model parameters
-        model_type: str = "MVLMModel_BU_3DFE",
-        n_gpus = 1,
     ):
         super().__init__()
         self.batch_size = batch_size
         self.selection_method = selection_method
         
         self.model_type = model_type
+        self.image_mode = image_mode
         self.n_gpus = n_gpus
       
         self.device, self.model = self._get_device_and_load_model_from_url()
         
+    @abc.abstractmethod
     def get_lm_count(self) -> int:
-        return 84
-        
+        pass
+    
     def _prepare_device(self, n_gpu_use):
         n_gpu = torch.cuda.device_count()
         if n_gpu_use > 0 and n_gpu == 0:
@@ -94,12 +96,12 @@ class BU3DFEPredictor(Predictor2D):
 
     def _get_device_and_load_model_from_url(self):
         print('Initialising model')
-        torch_model = MVLMModel(n_landmarks=self.get_lm_count(), n_features=256, dropout_rate=0.2, image_channels="RGB+depth")
+        torch_model = MVLMModel(n_landmarks=self.get_lm_count(), n_features=256, dropout_rate=0.2, image_channels=self.image_mode)
 
         print('Loading checkpoint')
         model_dir = Path(__file__).parent / "models" 
-        model_indetification = self.model_type + '-' + "RGB+depth"
-        
+        model_indetification = self.model_type + '-' + self.image_mode
+    
         check_point_name = models_urls[model_indetification]
 
         print('Getting device')
@@ -114,8 +116,7 @@ class BU3DFEPredictor(Predictor2D):
         torch_model = torch_model.to(device)
         torch_model.eval()
         return device, torch_model
-
-
+    
     def find_heat_map_maxima(self, heatmaps):
         """ heatmaps: (#LM, hm_size,hm_size) """
         out_dim = heatmaps.shape[0]  # number of landmarks
@@ -195,6 +196,42 @@ class BU3DFEPredictor(Predictor2D):
                 cur_id = cur_id + self.batch_size
 
         return self.find_maxima_in_batch_of_heatmaps(heatmaps.cpu(), heatmap_maxima), valid
+
+class BU3DFEPredictor(PaulsenModel):
+    def __init__(
+        self,
+        batch_size=2,
+        selection_method="simple",
+        n_gpus = 1,
+    ):
+        super().__init__(
+            model_type="MVLMModel_BU_3DFE", 
+            image_mode="RGB+depth", 
+            n_gpus=n_gpus, 
+            batch_size=batch_size, 
+            selection_method=selection_method
+        )
+
+    def get_lm_count(self) -> int:
+        return 84
+    
+class DTU3DPredictor(PaulsenModel):
+    def __init__(
+        self,
+        batch_size=2,
+        selection_method="simple",
+        n_gpus = 1,
+    ):
+        super().__init__(
+            model_type="MVLMModel_DTU3D", 
+            image_mode="RGB+depth", 
+            n_gpus=n_gpus, 
+            batch_size=batch_size, 
+            selection_method=selection_method
+        )
+    
+    def get_lm_count(self) -> int:
+        return 73
 
 ### Actural Torch Model ###
 
