@@ -13,7 +13,7 @@ class VTKViewer:
     ):
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
-     
+        self.ren.SetBackground(1, 1, 1)
 
         # Initialize RenderWindow
         self.ren_win = vtk.vtkRenderWindow()
@@ -21,8 +21,38 @@ class VTKViewer:
         self.ren_win.SetOffScreenRendering(0)
         self.ren_win.AddRenderer(self.ren)
         
-        actor, _ = obj_to_actor(filename)
+        actor, pd = obj_to_actor(filename)
         self.ren.AddActor(actor)
+        
+        # center of mass
+        center = vtk.vtkCenterOfMass()
+        center.SetInputData(pd)
+        center.SetUseScalarsAsWeights(False)
+        center.Update()
+        com = center.GetCenter()
+        translation = [-com[0], -com[1], -com[2]]
+        
+        t = vtk.vtkTransform()
+        t.Identity()
+
+        rx = 0
+        ry = 0
+        rz = 0
+        s = 1
+        
+        t.Scale(s, s, s)
+        t.RotateY(ry)
+        t.RotateX(rx)
+        t.RotateZ(rz)
+        t.Translate(translation)
+        t.Update()
+
+        # Transform (assuming only one mesh)
+        trans = vtk.vtkTransformPolyDataFilter()
+        trans.SetInputData(pd)
+        trans.SetTransform(t)
+        trans.Update()
+        
         
         if landmarks is not None:
             lm_pd = self.get_landmarks_as_spheres(landmarks)
@@ -34,7 +64,6 @@ class VTKViewer:
             actor_lm.GetProperty().SetColor(0, 0, 1)
             self.ren.AddActor(actor_lm)
             
-        self.ren.SetBackground(1, 1, 1)
         self.ren.ResetCamera()
         self.ren.GetActiveCamera().SetPosition(0, 0, 1)
         self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)

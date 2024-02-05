@@ -16,8 +16,15 @@ def rotation_matrix_z(angle):
 
 
 class Estimator3D:
-    def __init__(self, config):
-        self.config = config
+    def __init__(
+        self, 
+        mode: str = "quantile",
+        threshold_quantile: float = 0.5,
+        threshold_abs: float = 0.5,
+    ):
+        self.mode = mode
+        self.threshold_quantile = threshold_quantile
+        self.threshold_abs = threshold_abs
 
     # Each maxima in a heatmap corresponds to a line in 3D space of the original 3D shape
     # This function transforms the maxima to (start point, end point) pairs
@@ -132,8 +139,7 @@ class Estimator3D:
     # return the lines that correspond to a high valued maxima in the heatmap
     def filter_lines_based_on_heatmap_value_using_quantiles(self, landmark_stack, lm_no, pa, pb):
         max_values = landmark_stack[lm_no, :, 2]
-        q = self.config['process_3d']['heatmap_max_quantile']
-        threshold = np.quantile(max_values, q)
+        threshold = np.quantile(max_values, self.threshold_quantile)
         idx = max_values > threshold
         # print('Using ', threshold, ' as threshold in heatmap maxima')
         pa_new = pa[idx]
@@ -143,8 +149,7 @@ class Estimator3D:
     # return the lines that correspond to a high valued maxima in the heatmap
     def filter_lines_based_on_heatmap_value_using_absolute_value(self, landmark_stack, lm_no, pa, pb):
         max_values = landmark_stack[lm_no, :, 2]
-        threshold = self.config['process_3d']['heatmap_abs_threshold']
-        idx = max_values > threshold
+        idx = max_values > self.threshold_abs
         pa_new = pa[idx]
         pb_new = pb[idx]
         return pa_new, pb_new
@@ -157,14 +162,17 @@ class Estimator3D:
         for lm_no in range(n_landmarks):
             pa = lines_s[lm_no, :, :]
             pb = lines_e[lm_no, :, :]
-            # if self.config['process_3d']['filter_view_lines'] == "abs_value":
-            # pa, pb = self.filter_lines_based_on_heatmap_value_using_absolute_value(lm_no, pa, pb)
-            # elif self.config['process_3d']['filter_view_lines'] == "quantile":
-            pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(landmark_stack, lm_no, pa, pb)
+            
+            if self.mode == "absolute":
+                pa, pb = self.filter_lines_based_on_heatmap_value_using_absolute_value(landmark_stack, lm_no, pa, pb)
+            elif self.mode == "quantile":
+                pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(landmark_stack, lm_no, pa, pb)
+            else:
+                raise ValueError(f"Unknown mode for line matching in Estimator: {self.mode}")
             
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
-                raise('Not enough valid view lines for landmark ', lm_no)
+                raise Exception("Not enough valid view lines for landmark lm_no")
             
             p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
             sum_error = sum_error + best_error
@@ -173,45 +181,45 @@ class Estimator3D:
         return landmarks, sum_error/n_landmarks
 
     # TODO this is also present in render3D - should probably be merged
-    def apply_pre_transformation(self, pd):
-        translation = [0, 0, 0]
-        if self.config['pre-align']['align_center_of_mass']:
-            vtk_cm = vtk.vtkCenterOfMass()
-            vtk_cm.SetInputData(pd)
-            vtk_cm.SetUseScalarsAsWeights(False)
-            vtk_cm.Update()
-            cm = vtk_cm.GetCenter()
-            translation = [-cm[0], -cm[1], -cm[2]]
+    # def apply_pre_transformation(self, pd):
+    #     translation = [0, 0, 0]
+    #     if self.config['pre-align']['align_center_of_mass']:
+    #         vtk_cm = vtk.vtkCenterOfMass()
+    #         vtk_cm.SetInputData(pd)
+    #         vtk_cm.SetUseScalarsAsWeights(False)
+    #         vtk_cm.Update()
+    #         cm = vtk_cm.GetCenter()
+    #         translation = [-cm[0], -cm[1], -cm[2]]
 
-        t = vtk.vtkTransform()
-        t.Identity()
+    #     t = vtk.vtkTransform()
+    #     t.Identity()
 
-        rx = self.config['pre-align']['rot_x']
-        ry = self.config['pre-align']['rot_y']
-        rz = self.config['pre-align']['rot_z']
-        s = self.config['pre-align']['scale']
+    #     rx = self.config['pre-align']['rot_x']
+    #     ry = self.config['pre-align']['rot_y']
+    #     rz = self.config['pre-align']['rot_z']
+    #     s = self.config['pre-align']['scale']
 
-        t.Scale(s, s, s)
-        t.RotateY(ry)
-        t.RotateX(rx)
-        t.RotateZ(rz)
-        t.Translate(translation)
-        t.Update()
+    #     t.Scale(s, s, s)
+    #     t.RotateY(ry)
+    #     t.RotateX(rx)
+    #     t.RotateZ(rz)
+    #     t.Translate(translation)
+    #     t.Update()
 
-        # Transform (assuming only one mesh)
-        trans = vtk.vtkTransformPolyDataFilter()
-        trans.SetInputData(pd)
-        trans.SetTransform(t)
-        trans.Update()
+    #     # Transform (assuming only one mesh)
+    #     trans = vtk.vtkTransformPolyDataFilter()
+    #     trans.SetInputData(pd)
+    #     trans.SetTransform(t)
+    #     trans.Update()
 
-        if self.config['pre-align']['write_pre_aligned']:
-            name_out = str(self.config.temp_dir / ('pre_transform_mesh.vtk'))
-            writer = vtk.vtkPolyDataWriter()
-            writer.SetInputData(trans.GetOutput())
-            writer.SetFileName(name_out)
-            writer.Write()
+    #     if self.config['pre-align']['write_pre_aligned']:
+    #         name_out = str(self.config.temp_dir / ('pre_transform_mesh.vtk'))
+    #         writer = vtk.vtkPolyDataWriter()
+    #         writer.SetInputData(trans.GetOutput())
+    #         writer.SetFileName(name_out)
+    #         writer.Write()
 
-        return trans.GetOutput(), t
+    #     return trans.GetOutput(), t
 
     def transform_landmarks_to_original_space(self, landmarks, t):
         points = vtk.vtkPoints()
@@ -240,11 +248,14 @@ class Estimator3D:
     # Project found landmarks to closest point on the target surface
     # return the landmarks in the original space
     def project_landmarks_to_surface(self, pd, landmarks):
+        # TODO the projection should be fixed such that the mesh has its center of mass in the origin
+        #      but then the landmarks should be transformed back to the original space
+        
         # pd = self.multi_read_surface(mesh_name)
-        pd, t = self.apply_pre_transformation(pd)
+        # pd, t = self.apply_pre_transformation(pd)
         clean = vtk.vtkCleanPolyData()
         clean.SetInputData(pd)
-        # clean.SetInputConnection(pd.GetOutputPort())
+        # # clean.SetInputConnection(pd.GetOutputPort())
         clean.Update()
 
         locator = vtk.vtkCellLocator()
@@ -269,5 +280,6 @@ class Estimator3D:
         del clean
         del locator
         # self.landmarks = projected_landmarks
-        return self.transform_landmarks_to_original_space(projected_landmarks, t)
+        return projected_landmarks
+        # return self.transform_landmarks_to_original_space(projected_landmarks, t)
 
