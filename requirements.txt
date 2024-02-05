@@ -1,9 +1,0 @@
-numpy
-matplotlib
-imageio
-scipy
-scikit-image
-absl-py
-vtk
-tensorboard
-pandas
