@@ -19,7 +19,7 @@ class Landmarks(pydantic.BaseModel):
     landmarks: list[list[float]]
 
 app = fastapi.FastAPI()
-dm = pipeline.PaulsenPipeline()
+dm = pipeline.BU3DFEPipeline()
 
 @app.post("/landmarks3d")
 def get_3d_landmarks(item: Item):

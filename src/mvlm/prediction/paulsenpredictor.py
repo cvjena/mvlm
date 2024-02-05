@@ -1,4 +1,4 @@
-__all__ = ["PaulsenPredictor"]
+__all__ = ["BU3DFEPredictor"]
 
 from pathlib import Path
 
@@ -59,7 +59,7 @@ models_urls_full = {
   }
 
 
-class PaulsenPredictor(Predictor2D):
+class BU3DFEPredictor(Predictor2D):
     def __init__(
         self,
         batch_size=2,
