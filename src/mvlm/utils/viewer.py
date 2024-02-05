@@ -115,24 +115,14 @@ class VTKViewer:
         append = vtk.vtkAppendPolyData()
         for idx in range(len(lms)):
             lm = lms[idx]
-            # scalars = vtk.vtkDoubleArray()
-            # scalars.SetNumberOfComponents(1)
-
             sphere = vtk.vtkSphereSource()
             sphere.SetCenter(lm)
             sphere.SetRadius(sphere_size)
             sphere.SetThetaResolution(20)
             sphere.SetPhiResolution(20)
             sphere.Update()
-            # scalars.SetNumberOfValues(sphere.GetOutput().GetNumberOfPoints())
-
-            # for s in range(sphere.GetOutput().GetNumberOfPoints()):
-            #    scalars.SetValue(s, dst)
-
-            # sphere.GetOutput().GetPointData().SetScalars(scalars)
             append.AddInputData(sphere.GetOutput())
             del sphere
-            # del scalars
 
         append.Update()
         return append.GetOutput()
