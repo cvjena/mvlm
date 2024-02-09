@@ -11,7 +11,7 @@ from .utils3d import obj_to_actor
 class ObjVTKRenderer3D:
     def __init__(
         self,
-        n_views: int = 9,
+        n_views: int = 8,
         image_size: tuple = (256, 256), 
         offscreen: bool = True,
         min_x_angle: int = -40,
@@ -50,7 +50,7 @@ class ObjVTKRenderer3D:
 
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
-        self.ren.SetBackground(1, 1, 1)
+        self.ren.SetBackground(0.78, 0.78, 0.78)
         self.ren.GetActiveCamera().SetPosition(0, 0, 1)
         self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
         self.ren.GetActiveCamera().SetViewUp(0, 1, 0)
@@ -88,7 +88,7 @@ class ObjVTKRenderer3D:
 
     # Generate nview 3D transformations and return them as a stack
     def generate_3d_transformations(self):
-        if self.n_views == 9:
+        if self.n_views == 8:
             return np.array(
                 [
                     # [angle up down, angle left right, scale, tx, ty, tz]
@@ -98,7 +98,7 @@ class ObjVTKRenderer3D:
                     [ 30,  45, 0, 0, 0, 0],
                     [ 30, -45, 0, 0, 0, 0],
                     # center view
-                    [  0,   0, 0, 0, 0, 0],
+                    # [  0,   0, 0, 0, 0, 0],
                     # angle from below
                     [-30,  15, 0, 0, 0, 0],
                     [-30, -15, 0, 0, 0, 0],

@@ -41,7 +41,9 @@ class FaceAlignmentPredictor(Predictor2D):
                 continue
             
             # TODO also here the landmarks coordinates are flipped
-            landmarks[:, idx, 0] = pred[0][:, 1]
-            landmarks[:, idx, 1] = pred[0][:, 0]
-            landmarks[:, idx, 2] = image_stack[idx, pred[0][:, 1].astype(int), pred[0][:, 0].astype(int), 3]
+            x = pred[0][:, 0]
+            y = pred[0][:, 1]
+            landmarks[:, idx, 0] = y
+            landmarks[:, idx, 1] = x   
+            landmarks[:, idx, 2] = image_stack[idx, np.clip(y, 0, 255).astype(int), np.clip(x, 0, 255).astype(int), 3]
         return landmarks, valid

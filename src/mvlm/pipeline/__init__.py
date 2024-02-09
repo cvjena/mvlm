@@ -12,7 +12,7 @@ from mvlm.pipeline.mediapipe_pipeline import MediaPipePipeline
 from mvlm.pipeline.paulsen_pipeline import BU3DFEPipeline, DTU3DPipeline
 from mvlm.pipeline.face_alignment_pipeline import FaceAlignmentPipeline
 
-def create_pipeline(name: str, kwargs: dict(str, object)):
+def create_pipeline(name: str, **kwargs):
     """
     Create a pipeline object based on the specified name.
 

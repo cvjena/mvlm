@@ -172,10 +172,12 @@ class Estimator3D:
             
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
-                raise Exception("Not enough valid view lines for landmark lm_no", lm_no, len(pa))
-            
-            p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
-            sum_error = sum_error + best_error
+                print("Not enough points for good estimate of landmark lm_no", lm_no, len(pa))
+                p_intersect = compute_intersection_between_lines(pa, pb)
+                # raise Exception("Not enough valid view lines for landmark lm_no", lm_no, len(pa))
+            else:
+                p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
+                sum_error = sum_error + best_error
             landmarks[lm_no, :] = p_intersect
         # print("Ransac average error ", sum_error/n_landmarks)
         return landmarks, sum_error/n_landmarks

@@ -94,10 +94,12 @@ class Pipeline(abc.ABC, TimeMixin):
         # save the iamge stack flattened such that it close to a square
         n, h, w, c = image_stack.shape
         # closest nrows and ncols
-        nrows = int(np.sqrt(n))
-        ncols = n // nrows
-        if nrows * ncols < n:
-            ncols += 1
+        # nrows = int(np.sqrt(n))
+        # ncols = n // nrows
+        # if nrows * ncols < n:
+        #     ncols += 1
+        nrows=2
+        ncols=4
         # create the image
         out_image = np.zeros((nrows * h, ncols * w, 3))
         for i in range(n):

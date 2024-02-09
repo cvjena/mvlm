@@ -64,7 +64,8 @@ class DlibPredictor(Predictor2D):
             for j in range(0, shape.num_parts):
                 x = shape.part(j).x
                 y = shape.part(j).y
-                z = image[int(y), int(x), 3]
+                # TODO make this more efficient
+                z = image[min(255, int(y)), min(255, int(x)), 3]
                 # TODO also here the x and y are swapped... there must be a switch later in the code ...
                 landmarks[j, idx, :] = [y, x, z]
         return landmarks, valid
