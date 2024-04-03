@@ -8,7 +8,6 @@ import mvlm
 parser = argparse.ArgumentParser()
 
 # we adapt the already existing config parser and add our arguments
-parser.add_argument('-c', '--config', default="configs/BU_3DFE-RGB+depth.json", type=str) 
 parser.add_argument('-p', '--path', type=str, required=True)
 parser.add_argument('-o', '--out', type=str, required=False)
 args = parser.parse_args()
@@ -34,20 +33,15 @@ if len(objFiles) == 0:
     print("Given path does not contain any obj files")
     sys.exit(1)
 
-# create the model for predicting the landmarks
-dm = mvlm.pipeline.create_pipeline("mediapipe", render_image_stack=True, render_image_folder="visualization")
-
-# dm = mvlm.pipeline.BU3DFEPipeline(render_image_stack=True, render_image_folder="visualization")
-# dm = mvlm.pipeline.DTU3DPipeline(render_image_stack=True, render_image_folder="visualization")
-# dm = mvlm.pipeline.DlibPipeline(render_image_stack=True, render_image_folder="visualization")
-# dm = mvlm.pipeline.FaceAlignmentPipeline(render_image_stack=True, render_image_folder="visualization")
-
-
 for i, file in enumerate(objFiles):
-    print(f"Current file: {file}")
-    # predict the landmarks
-    landmarks = dm.predict_one_file(file)
-    np.savetxt((pathToOut / f"{file.stem}.txt").as_posix(), landmarks, delimiter=",")
+    for pname in ["mediapipe", "bu3dfe", "dlib", "dtu3d", "face_alignment"]:
+        print(f"Pipeline: {pname}")
+        print(f"Current file: {file}")
+        
+        dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=True, render_image_folder="visualization")
+        # predict the landmarks
+        landmarks = dm.predict_one_file(file)
+        np.savetxt((pathToOut / f"{file.stem}_{pname}.txt").as_posix(), landmarks, delimiter=",")
 
-    # visualize the mesh
-    # mvlm.utils.VTKViewer(file.as_posix(), landmarks)
+        # visualize the mesh
+        mvlm.utils.VTKViewer(file.as_posix(), landmarks)

@@ -118,7 +118,6 @@ __MACOSX/
 # Rasmus stuff
 *_RAPADEBUG*
 
-assets/
 example/
 data_test/
 visualization/
