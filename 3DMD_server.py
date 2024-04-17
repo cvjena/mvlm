@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import fastapi
 import pydantic
 
@@ -23,7 +25,8 @@ dm = pipeline.BU3DFEPipeline()
 
 @app.post("/landmarks3d")
 def get_3d_landmarks(item: Item):
-    landmarks = dm.predict_one_file(item.path_in)
+    path_in = Path(item.path_in)
+    landmarks = dm.predict_one_file(path_in)
     landmarks = landmarks.tolist()
     return Landmarks(landmarks=landmarks)
 
