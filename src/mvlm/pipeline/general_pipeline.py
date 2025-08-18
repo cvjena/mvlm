@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 
 from mvlm.prediction.predictor2d import Predictor2D
-from mvlm.utils import ObjVTKRenderer3D, Estimator3D
+from mvlm.utils import Estimator3D, ObjVTKRenderer3D
 
 
 class TimeMixin:
@@ -41,30 +41,39 @@ class Pipeline(abc.ABC, TimeMixin):
     def __init__(
         self,
         render_image_stack: bool = False,  # if true, the image stack will be saved
-        render_image_folder: Path = None,  # if not None, the image stack will be saved in this folder
+        offscreen: bool = True,  # if true, the renderer will render offscreen
+        n_views: int = 8,  # number of views to render
+        render_image_folder: Path | None = None,  # if not None, the image stack will be saved in this folder
     ):
         self.render_image_stack = render_image_stack
         self.render_image_folder = render_image_folder
+        self.n_views = n_views
 
         # loading of the renderer and the predictor
-        self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256), offscreen=True, n_views=32)
+        self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256), offscreen=offscreen, n_views=n_views)
         self.estimator_3d = Estimator3D()
-        self.predictor_2d: Predictor2D = None
+        self.predictor_2d: Predictor2D | None = None
 
     def get_lm_count(self) -> int:
+        if self.predictor_2d is None:
+            raise ValueError("Predictor2D is not initialized.")
+
         return self.predictor_2d.get_lm_count()
 
     def predict_one_file(self, file_name: Path):
+        if self.predictor_2d is None:
+            raise ValueError("Predictor2D is not initialized.")
+
         full_s = time.time()
         if not file_name.exists():
             print(f"File {file_name} does not exist")
             return None
         self.tic()
+
         image_stack, transform_stack, pd = self.renderer_3d.multiview_render(file_name)
         print("Render [Total]: ", self.toc_p())
 
         if self.render_image_stack:
-            # TODO Check if the folder exists
             self.visualize_image_stack(image_stack, file_name)
 
         self.tic()
@@ -92,37 +101,17 @@ class Pipeline(abc.ABC, TimeMixin):
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
         return landmarks
 
-    def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
-        # save the iamge stack flattened such that it close to a square
-        n, h, w, c = image_stack.shape
-        # closest nrows and ncols
-        # nrows = int(np.sqrt(n))
-        # ncols = n // nrows
-        # if nrows * ncols < n:
-        #     ncols += 1
-        nrows = 2
-        ncols = 4
-        # create the image
-        out_image = np.zeros((nrows * h, ncols * w, 3))
-        for i in range(n):
-            r = i // ncols
-            c = i % ncols
-            out_image[r * h : (r + 1) * h, c * w : (c + 1) * w, :] = image_stack[i, :, :, 0:3]
-        out_image = np.uint8(out_image * 255)
-        out_image = Image.fromarray(out_image)
+    def visualize_image_stack(self, image_stack: np.ndarray, file_name: Path):
+        save_folder = self.render_image_folder or file_name.parent
+        if not save_folder.exists():
+            raise ValueError(f"Folder for --visualize-method flag [{save_folder}] does not exist.")
 
-        file_name = Path(file_name)
-        out_image.save(f"{self.render_image_folder}/{file_name.stem}.png")
+        for i in range(self.n_views):
+            # Extract the individual image
+            single_image = image_stack[i, :, :, 0:3]
+            single_image = np.uint8(single_image * 255)
+            single_image = Image.fromarray(single_image)
 
-        #  # save the image stack, make the in a 2 by 4 grid
-        # n, h, w, c = image_stack.shape
-        # out_image = np.reshape(image_stack, (2, 4, h, w, c))
-        # # remove last channel
-        # out_image = out_image[:, :, :, :, 0:3]
-        # out_image = np.transpose(out_image, (0, 2, 1, 3, 4))
-        # out_image = np.reshape(out_image, (2*h, 4*w, 3))
-        # out_image = np.uint8(out_image * 255)
-        # out_image = Image.fromarray(out_image)
-
-        # file_name = Path(file_name)
-        # out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
+            # Save the image with leading zeros in the filename
+            save_path = save_folder / f"{file_name.stem}_{i:02d}.png"
+            single_image.save(save_path)
