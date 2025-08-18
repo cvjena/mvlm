@@ -11,6 +11,8 @@ parser = argparse.ArgumentParser()
 # we adapt the already existing config parser and add our arguments
 parser.add_argument("-p", "--path", type=str, required=True)
 parser.add_argument("-o", "--out", type=str, required=False)
+parser.add_argument("-vis", "--visualize", action="store_true", help="Visualize the meshes with the predicted landmarks")
+
 args = parser.parse_args()
 
 if args.out is None:
@@ -50,5 +52,7 @@ for i, file in enumerate(objFiles):
 
         np.savetxt((pathToOut / f"{file.stem}_{pname}.txt").as_posix(), landmarks, delimiter=",")
 
+        if not args.visualize:
+            continue
         # visualize the mesh
         mvlm.utils.VTKViewer(file.as_posix(), landmarks)
