@@ -1,15 +1,16 @@
-__all__ = ["VTKViewer"] 
+__all__ = ["VTKViewer"]
 import vtk
 import numpy as np
 import math
 
 from .utils3d import obj_to_actor
 
+
 class VTKViewer:
     def __init__(
         self,
         filename: str,
-        landmarks: np.ndarray = None,
+        landmarks: np.ndarray | None = None,
     ):
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
@@ -20,10 +21,10 @@ class VTKViewer:
         self.ren_win.SetSize(1024, 1024)
         self.ren_win.SetOffScreenRendering(0)
         self.ren_win.AddRenderer(self.ren)
-        
+
         actor, pd = obj_to_actor(filename)
         self.ren.AddActor(actor)
-        
+
         # center of mass
         center = vtk.vtkCenterOfMass()
         center.SetInputData(pd)
@@ -31,7 +32,7 @@ class VTKViewer:
         center.Update()
         com = center.GetCenter()
         translation = [-com[0], -com[1], -com[2]]
-        
+
         t = vtk.vtkTransform()
         t.Identity()
 
@@ -39,7 +40,7 @@ class VTKViewer:
         ry = 0
         rz = 0
         s = 1
-        
+
         t.Scale(s, s, s)
         t.RotateY(ry)
         t.RotateX(rx)
@@ -52,8 +53,7 @@ class VTKViewer:
         trans.SetInputData(pd)
         trans.SetTransform(t)
         trans.Update()
-        
-        
+
         if landmarks is not None:
             lm_pd = self.get_landmarks_as_spheres(landmarks)
             mapper = vtk.vtkPolyDataMapper()
@@ -63,22 +63,24 @@ class VTKViewer:
             actor_lm.SetMapper(mapper)
             actor_lm.GetProperty().SetColor(0, 0, 1)
             self.ren.AddActor(actor_lm)
-            
+
         self.ren.ResetCamera()
         self.ren.GetActiveCamera().SetPosition(0, 0, 1)
         self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
         self.ren.GetActiveCamera().SetViewUp(0, 1, 0)
         # self.ren.GetActiveCamera().SetParallelProjection(1)
-    
+
         self.iren = vtk.vtkRenderWindowInteractor()
         self.iren.SetRenderWindow(self.ren_win)
         self.iren.Initialize()
         self.iren.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
-        
-        
+
+        # Call setup_hotkeys during initialization
+        self.setup_hotkeys()
+
         self.ren_win.Render()
         self.iren.Start()
-        
+
     def get_landmark_bounds(self, lms):
         x_min = lms[0][0]
         x_max = x_min
@@ -99,14 +101,13 @@ class VTKViewer:
             z_max = max(z_max, z)
 
         return x_min, x_max, y_min, y_max, z_min, z_max
-    
+
     def get_landmarks_bounding_box_diagonal_length(self, lms):
         x_min, x_max, y_min, y_max, z_min, z_max = self.get_landmark_bounds(lms)
 
-        diag_len = math.sqrt(
-            (x_max - x_min) * (x_max - x_min) + (y_max - y_min) * (y_max - y_min) + (z_max - z_min) * (z_max - z_min))
+        diag_len = math.sqrt((x_max - x_min) * (x_max - x_min) + (y_max - y_min) * (y_max - y_min) + (z_max - z_min) * (z_max - z_min))
         return diag_len
-        
+
     def get_landmarks_as_spheres(self, lms):
         diag_len = self.get_landmarks_bounding_box_diagonal_length(lms)
         # sphere radius is 0.8% of bounding box diagonal
@@ -126,3 +127,22 @@ class VTKViewer:
 
         append.Update()
         return append.GetOutput()
+
+    def take_screenshot(self, filename="screenshot.png"):
+        window_to_image_filter = vtk.vtkWindowToImageFilter()
+        window_to_image_filter.SetInput(self.ren_win)
+        window_to_image_filter.Update()
+
+        writer = vtk.vtkPNGWriter()
+        writer.SetFileName(filename)
+        writer.SetInputConnection(window_to_image_filter.GetOutputPort())
+        writer.Write()
+
+    def setup_hotkeys(self):
+        def keypress_callback(obj, event):
+            key = obj.GetKeySym()
+            if key == "s":  # Press 's' to take a screenshot
+                self.take_screenshot()
+                print("Screenshot saved as 'screenshot.png'")
+
+        self.iren.AddObserver("KeyPressEvent", keypress_callback)  # type: ignore

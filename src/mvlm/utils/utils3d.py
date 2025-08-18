@@ -7,7 +7,7 @@ import vtk
 import os
 
 
-def obj_to_actor(path: Union[Path, str]) -> vtk.vtkActor:
+def obj_to_actor(path: Union[Path, str]) -> tuple[vtk.vtkActor, vtk.vtkPolyData]:
     if isinstance(path, str):
         path = Path(path)
     if not path.is_file():
