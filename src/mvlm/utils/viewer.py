@@ -54,15 +54,16 @@ class VTKViewer:
         trans.SetTransform(t)
         trans.Update()
 
+        self.landmarks_actor = None
         if landmarks is not None:
             lm_pd = self.get_landmarks_as_spheres(landmarks)
             mapper = vtk.vtkPolyDataMapper()
             mapper.SetInputData(lm_pd)
 
-            actor_lm = vtk.vtkActor()
-            actor_lm.SetMapper(mapper)
-            actor_lm.GetProperty().SetColor(0, 0, 1)
-            self.ren.AddActor(actor_lm)
+            self.landmarks_actor = vtk.vtkActor()
+            self.landmarks_actor.SetMapper(mapper)
+            self.landmarks_actor.GetProperty().SetColor(0, 0, 1)
+            self.ren.AddActor(self.landmarks_actor)
 
         self.ren.ResetCamera()
         self.ren.GetActiveCamera().SetPosition(0, 0, 1)
@@ -144,5 +145,11 @@ class VTKViewer:
             if key == "s":  # Press 's' to take a screenshot
                 self.take_screenshot()
                 print("Screenshot saved as 'screenshot.png'")
+            elif key == "h":  # Press 'h' to toggle landmarks
+                if self.landmarks_actor is not None:
+                    is_visible = self.landmarks_actor.GetVisibility()
+                    self.landmarks_actor.SetVisibility(not is_visible)
+                    self.ren_win.Render()
+                    print(f"Landmarks {'shown' if not is_visible else 'hidden'}")
 
         self.iren.AddObserver("KeyPressEvent", keypress_callback)  # type: ignore
