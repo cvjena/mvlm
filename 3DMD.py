@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+
 import numpy as np
 
 import mvlm
@@ -42,6 +43,11 @@ for i, file in enumerate(objFiles):
         dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=False, render_image_folder="visualization")
         # predict the landmarks
         landmarks = dm.predict_one_file(file)
+
+        if landmarks is None:
+            print(f"Landmarks for {file} could not be predicted -> skipping file [{file.stem}] for pipeline {pname}")
+            continue
+
         np.savetxt((pathToOut / f"{file.stem}_{pname}.txt").as_posix(), landmarks, delimiter=",")
 
         # visualize the mesh
