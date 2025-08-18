@@ -6,16 +6,17 @@ import numpy as np
 import vtk
 import os
 
-def obj_to_actor(path: Union[Path,str]) -> vtk.vtkActor:
+
+def obj_to_actor(path: Union[Path, str]) -> vtk.vtkActor:
     if isinstance(path, str):
         path = Path(path)
     if not path.is_file():
         raise ValueError(f"File {path} does not exist.")
-    
+
     obj_in = vtk.vtkOBJReader()
     obj_in.SetFileName(path.as_posix())
     obj_in.Update()
-    
+
     if obj_in.GetOutput().GetNumberOfPoints() == 0:
         raise ValueError(f"File {path} does not contain any points.")
 
@@ -32,7 +33,22 @@ def obj_to_actor(path: Union[Path,str]) -> vtk.vtkActor:
             tex_in.SetQualityTo32Bit()
             tex_in.SetInputData(tex_img.GetOutput())
         except Exception as e:
-            tex_in = None # if we cannot load the texture, we just ignore it
+            tex_in = None  # if we cannot load the texture, we just ignore it
+
+    # special case for the FLAME 3D model
+    if path.name.startswith("flame"):
+        print("Loading flame texture")
+        try:
+            tex_img = vtk.vtkJPEGReader()
+            tex_img.SetFileName((path.parent / "mean_texture.jpg").as_posix())
+            tex_img.Update()
+            tex_in = vtk.vtkTexture()
+            tex_in.SetInterpolate(0)
+            tex_in.SetQualityTo32Bit()
+            tex_in.SetInputData(tex_img.GetOutput())
+        except Exception as e:
+            print("Could not load flame texture", e)
+            tex_in = None  # if we cannot load the texture, we just ignore it
 
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputData(obj_in.GetOutput())
@@ -41,10 +57,31 @@ def obj_to_actor(path: Union[Path,str]) -> vtk.vtkActor:
     actor.SetMapper(mapper)
     if tex_in is not None:
         actor.SetTexture(tex_in)
+
     actor.GetProperty().SetColor(1, 1, 1)
     actor.GetProperty().SetAmbient(1.0)
     # actor.GetProperty().SetSpecular(0)
     actor.GetProperty().SetDiffuse(0)
+
+    # if path.name.startswith("flame"):
+    #     t = vtk.vtkTransform()
+    #     s = 20
+    #     t.Scale(s, s, s)
+
+    #     trans = vtk.vtkTransformPolyDataFilter()
+    #     trans.SetInputData(obj_in.GetOutput())
+    #     trans.SetTransform(t)
+    #     t.Update()
+    #     trans.Update()
+
+    #     mapper = vtk.vtkPolyDataMapper()
+    #     mapper.SetInputData(trans.GetOutput())
+    #     actor.SetMapper(mapper)
+
+    #     mapper.Update()
+
+    # actor.SetUserTransform(t)
+
     return actor, obj_in.GetOutput()
 
 
@@ -57,16 +94,18 @@ pa :          Nx3-matrix containing end point of N lines
 p_intersect : Best intersection point of the N lines, in least squares sense.
 distances   : Distances from intersection point to the input lines
 Anders Eikenes, 2012 """
+
+
 def compute_intersection_between_lines(pa, pb):
     n_lines = pa.shape[0]
     si = pb - pa  # N lines described as vectors
-    ni = np.divide(si, np.transpose(np.sqrt(np.sum(si ** 2, 1)) * np.ones((3, n_lines))))  # Normalize vectors
+    ni = np.divide(si, np.transpose(np.sqrt(np.sum(si**2, 1)) * np.ones((3, n_lines))))  # Normalize vectors
     nx = ni[:, 0]
     ny = ni[:, 1]
     nz = ni[:, 2]
-    sxx = np.sum(nx ** 2 - 1)
-    syy = np.sum(ny ** 2 - 1)
-    szz = np.sum(nz ** 2 - 1)
+    sxx = np.sum(nx**2 - 1)
+    syy = np.sum(ny**2 - 1)
+    szz = np.sum(nz**2 - 1)
     sxy = np.sum(np.multiply(nx, ny))
     sxz = np.sum(np.multiply(nx, nz))
     syz = np.sum(np.multiply(ny, nz))
@@ -74,14 +113,12 @@ def compute_intersection_between_lines(pa, pb):
     # cx = np.sum(np.multiply(pa[:, 0], (nx ** 2 - 1)) + np.multiply(pa[:, 1], np.multiply(nx, ny)) + np.multiply(pa[:, 2], np.multiply(nx, nz)))
     # cy = np.sum(np.multiply(pa[:, 0], np.multiply(nx, ny)) + np.multiply(pa[:, 1], (ny ** 2 - 1)) + np.multiply(pa[:, 2], np.multiply(ny, nz)))
     # cz = np.sum(np.multiply(pa[:, 0], np.multiply(nx, nz)) + np.multiply(pa[:, 1], np.multiply(ny, nz)) + np.multiply(pa[:, 2], (nz ** 2 - 1)))
-    
+
     # simplify the above code
-    cx = np.sum(pa[:, 0] * (nx ** 2 - 1) + pa[:, 1] * (nx * ny) + pa[:, 2] * (nx * nz))
-    cy = np.sum(pa[:, 0] * (nx * ny) + pa[:, 1] * (ny ** 2 - 1) + pa[:, 2] * (ny * nz))
-    cz = np.sum(pa[:, 0] * (nx * nz) + pa[:, 1] * (ny * nz) + pa[:, 2] * (nz ** 2 - 1))
-    
-    
-    
+    cx = np.sum(pa[:, 0] * (nx**2 - 1) + pa[:, 1] * (nx * ny) + pa[:, 2] * (nx * nz))
+    cy = np.sum(pa[:, 0] * (nx * ny) + pa[:, 1] * (ny**2 - 1) + pa[:, 2] * (ny * nz))
+    cz = np.sum(pa[:, 0] * (nx * nz) + pa[:, 1] * (ny * nz) + pa[:, 2] * (nz**2 - 1))
+
     c = np.array([[cx], [cy], [cz]])
     p_intersect = np.matmul(np.linalg.pinv(s), c)
     return p_intersect[:, 0]
@@ -93,7 +130,7 @@ def lines_to_use(pa, pb, amnt_lines):
     # Compute distance from all lines to intersection
     top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
     bottom = pb - pa
-    distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
+    distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1)) ** 2
     return distances, p_est
 
 
@@ -110,16 +147,16 @@ class Utils3D:
     def read_heatmap_maxima(self, dir_name=None):
         if dir_name is None:
             dir_name = str(self.config.temp_dir)
-        print('Reading from', dir_name)
+        print("Reading from", dir_name)
 
-        n_landmarks = self.config['arch']['args']['n_landmarks']
-        n_views = self.config['data_loader']['args']['n_views']
+        n_landmarks = self.config["arch"]["args"]["n_landmarks"]
+        n_views = self.config["data_loader"]["args"]["n_views"]
 
         # [n_landmarks, n_views, x, y, value]
         self.heatmap_maxima = np.zeros((n_landmarks, n_views, 3))
 
         for idx in range(n_views):
-            name_hm_maxima = dir_name + '/hm_maxima' + str(idx) + '.txt'
+            name_hm_maxima = dir_name + "/hm_maxima" + str(idx) + ".txt"
             with open(name_hm_maxima) as f:
                 id_lm = 0
                 for line in f:
@@ -128,24 +165,24 @@ class Utils3D:
                     self.heatmap_maxima[id_lm, idx, :] = (x, y, val)
                     id_lm = id_lm + 1
                     if id_lm > n_landmarks:
-                        print('Too many landmarks in file ', name_hm_maxima)
+                        print("Too many landmarks in file ", name_hm_maxima)
                         break
 
             if id_lm != n_landmarks:
-                print('Too few landmarks in file ', name_hm_maxima)
+                print("Too few landmarks in file ", name_hm_maxima)
 
     def read_3d_transformations(self, dir_name=None):
         if dir_name is None:
             dir_name = str(self.config.temp_dir)
-        print('Reading from', dir_name)
+        print("Reading from", dir_name)
 
-        n_views = self.config['data_loader']['args']['n_views']
+        n_views = self.config["data_loader"]["args"]["n_views"]
 
         # [n_views, rx, ry, rz, s, tx, ty]
         self.transformations_3d = np.zeros((n_views, 6))
 
         for idx in range(n_views):
-            name_hm_maxima = dir_name + '/transform' + str(idx) + '.txt'
+            name_hm_maxima = dir_name + "/transform" + str(idx) + ".txt"
             rx, ry, rz, s, tx, ty = np.loadtxt(name_hm_maxima)
             self.transformations_3d[idx, :] = (rx, ry, rz, s, tx, ty)
 
@@ -158,8 +195,8 @@ class Utils3D:
         self.lm_start = np.empty((n_landmarks, n_views, 3))
         self.lm_end = np.empty((n_landmarks, n_views, 3))
 
-        img_size = self.config['data_loader']['args']['image_size']
-        hm_size = self.config['data_loader']['args']['heatmap_size']
+        img_size = self.config["data_loader"]["args"]["image_size"]
+        hm_size = self.config["data_loader"]["args"]["heatmap_size"]
         winsize = img_size
 
         # TODO these fixed values should probably be in a config file
@@ -172,8 +209,10 @@ class Utils3D:
 
         def rotation_matrix_x(angle):
             return np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
+
         def rotation_matrix_y(angle):
             return np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
+
         def rotation_matrix_z(angle):
             return np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
 
@@ -203,23 +242,22 @@ class Utils3D:
                 p_wc_e[0] = (x / winsize) * x_len + x_min
                 p_wc_e[1] = ((winsize - 1 - y) / winsize) * y_len + y_min
                 p_wc_e[2] = -500
-                
+
                 points = np.concatenate((p_wc_s, p_wc_e), axis=1)
                 points = np.concatenate((points, np.ones((1, 2))), axis=0)
                 points = np.matmul(t.T, points)
                 p_wc_s = points[:, 0]
                 p_wc_e = points[:, 1]
-                
+
                 self.lm_start[lm_no, idx, :] = p_wc_s[:3]
                 self.lm_end[lm_no, idx, :] = p_wc_e[:3]
-
 
     def visualise_one_landmark_lines(self, lm_no, dir_name=None):
         if dir_name is None:
             dir_name = str(self.config.temp_dir)
-        print('Writing to', dir_name)
+        print("Writing to", dir_name)
 
-        lm_name = dir_name + '/lm_lines_' + str(lm_no) + '.vtk'
+        lm_name = dir_name + "/lm_lines_" + str(lm_no) + ".vtk"
 
         n_views = self.heatmap_maxima.shape[1]
         pd = vtk.vtkPolyData()
@@ -277,7 +315,7 @@ class Utils3D:
         # Compute distance from all lines to intersection
         top = np.cross((np.transpose(p_est) - pa), (np.transpose(p_est) - pb))
         bottom = pb - pa
-        distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
+        distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1)) ** 2
         # number of inliners
         n_inliners = np.sum(distances < dist_thres)
         if n_inliners > d:
@@ -288,7 +326,7 @@ class Utils3D:
             # Compute distance from all inliners to intersection
             top = np.cross((np.transpose(p_est) - pa[idx, :]), (np.transpose(p_est) - pb[idx, :]))
             bottom = pb[idx, :] - pa[idx, :]
-            distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1))**2
+            distances = (np.linalg.norm(top, axis=1) / np.linalg.norm(bottom, axis=1)) ** 2
 
             # sum_squared = np.sum(np.square(distances)) / n_inliners
             sum_squared = np.sum(distances) / n_inliners
@@ -308,7 +346,7 @@ class Utils3D:
     # return the lines that correspond to a high valued maxima in the heatmap
     def filter_lines_based_on_heatmap_value_using_quantiles(self, lm_no, pa, pb):
         max_values = self.heatmap_maxima[lm_no, :, 2]
-        q = self.config['process_3d']['heatmap_max_quantile']
+        q = self.config["process_3d"]["heatmap_max_quantile"]
         threshold = np.quantile(max_values, q)
         idx = max_values > threshold
         # print('Using ', threshold, ' as threshold in heatmap maxima')
@@ -319,7 +357,7 @@ class Utils3D:
     # return the lines that correspond to a high valued maxima in the heatmap
     def filter_lines_based_on_heatmap_value_using_absolute_value(self, lm_no, pa, pb):
         max_values = self.heatmap_maxima[lm_no, :, 2]
-        threshold = self.config['process_3d']['heatmap_abs_threshold']
+        threshold = self.config["process_3d"]["heatmap_abs_threshold"]
         idx = max_values > threshold
         pa_new = pa[idx]
         pb_new = pb[idx]
@@ -337,16 +375,16 @@ class Utils3D:
             # pa, pb = self.filter_lines_based_on_heatmap_value_using_absolute_value(lm_no, pa, pb)
             # elif self.config['process_3d']['filter_view_lines'] == "quantile":
             pa, pb = self.filter_lines_based_on_heatmap_value_using_quantiles(lm_no, pa, pb)
-            
+
             p_intersect = (0, 0, 0)
             if len(pa) < 3:
-                raise('Not enough valid view lines for landmark ', lm_no)
-            
+                raise ("Not enough valid view lines for landmark ", lm_no)
+
             p_intersect, best_error = self.compute_intersection_between_lines_ransac(pa, pb)
             sum_error = sum_error + best_error
             self.landmarks[lm_no, :] = p_intersect
         # print("Ransac average error ", sum_error/n_landmarks)
-        return sum_error/n_landmarks
+        return sum_error / n_landmarks
 
     @staticmethod
     def multi_read_surface(file_name):
@@ -397,8 +435,8 @@ class Utils3D:
             img_texture = os.path.splitext(file_name)[0] + ".jpg"
             if os.path.isfile(img_texture):
                 texture_file_name = img_texture
-            if file_name.find('RAW.wrl') > 0:
-                img_texture = file_name.replace('RAW.wrl', 'F3D.bmp')  # BU-3DFE RAW file hack
+            if file_name.find("RAW.wrl") > 0:
+                img_texture = file_name.replace("RAW.wrl", "F3D.bmp")  # BU-3DFE RAW file hack
                 if os.path.isfile(img_texture):
                     texture_file_name = img_texture
 
@@ -426,7 +464,7 @@ class Utils3D:
     # TODO this is also present in render3D - should probably be merged
     def apply_pre_transformation(self, pd):
         translation = [0, 0, 0]
-        if self.config['pre-align']['align_center_of_mass']:
+        if self.config["pre-align"]["align_center_of_mass"]:
             vtk_cm = vtk.vtkCenterOfMass()
             vtk_cm.SetInputData(pd)
             vtk_cm.SetUseScalarsAsWeights(False)
@@ -437,10 +475,10 @@ class Utils3D:
         t = vtk.vtkTransform()
         t.Identity()
 
-        rx = self.config['pre-align']['rot_x']
-        ry = self.config['pre-align']['rot_y']
-        rz = self.config['pre-align']['rot_z']
-        s = self.config['pre-align']['scale']
+        rx = self.config["pre-align"]["rot_x"]
+        ry = self.config["pre-align"]["rot_y"]
+        rz = self.config["pre-align"]["rot_z"]
+        s = self.config["pre-align"]["scale"]
 
         t.Scale(s, s, s)
         t.RotateY(ry)
@@ -455,8 +493,8 @@ class Utils3D:
         trans.SetTransform(t)
         trans.Update()
 
-        if self.config['pre-align']['write_pre_aligned']:
-            name_out = str(self.config.temp_dir / ('pre_transform_mesh.vtk'))
+        if self.config["pre-align"]["write_pre_aligned"]:
+            name_out = str(self.config.temp_dir / ("pre_transform_mesh.vtk"))
             writer = vtk.vtkPolyDataWriter()
             writer.SetInputData(trans.GetOutput())
             writer.SetFileName(name_out)
@@ -529,9 +567,9 @@ class Utils3D:
     def write_landmarks_as_vtk_points(self, dir_name=None):
         if dir_name is None:
             dir_name = str(self.config.temp_dir)
-        print('Writing to', dir_name)
+        print("Writing to", dir_name)
 
-        lm_name = dir_name + '/lms_as_points.vtk'
+        lm_name = dir_name + "/lms_as_points.vtk"
         n_landmarks = self.heatmap_maxima.shape[0]
 
         pd = vtk.vtkPolyData()
@@ -584,13 +622,13 @@ class Utils3D:
 
     @staticmethod
     def write_landmarks_as_text_external(landmarks, file_name):
-        f = open(file_name, 'w')
+        f = open(file_name, "w")
 
         for lm in landmarks:
             px = lm[0]
             py = lm[1]
             pz = lm[2]
-            out_str = str(px) + ' ' + str(py) + ' ' + str(pz) + '\n'
+            out_str = str(px) + " " + str(py) + " " + str(pz) + "\n"
             f.write(out_str)
 
         f.close()
@@ -600,7 +638,7 @@ class Utils3D:
         names = []
         for root, dirs, files in os.walk(directory):
             for filename in files:
-                if filename.lower().endswith(('.obj', '.wrl', '.vtk', '.ply', '.stl')):
+                if filename.lower().endswith((".obj", ".wrl", ".vtk", ".ply", ".stl")):
                     full_name = os.path.join(root, filename)
                     if os.path.isfile(full_name) and os.stat(full_name).st_size > 5:
                         names.append(full_name)

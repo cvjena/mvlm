@@ -8,15 +8,15 @@ import mvlm
 parser = argparse.ArgumentParser()
 
 # we adapt the already existing config parser and add our arguments
-parser.add_argument('-p', '--path', type=str, required=True)
-parser.add_argument('-o', '--out', type=str, required=False)
+parser.add_argument("-p", "--path", type=str, required=True)
+parser.add_argument("-o", "--out", type=str, required=False)
 args = parser.parse_args()
 
 if args.out is None:
     args.out = args.path
 
 # handle all pathing tasks
-pathToDir = Path(args.path) # should be the path containing the meshes
+pathToDir = Path(args.path)  # should be the path containing the meshes
 pathToOut = Path(args.out)  # most likely the upper folder of the meshes
 
 if not pathToDir.is_dir():
@@ -34,11 +34,12 @@ if len(objFiles) == 0:
     sys.exit(1)
 
 for i, file in enumerate(objFiles):
-    for pname in ["mediapipe", "bu3dfe", "dlib", "dtu3d", "face_alignment"]:
+    # for pname in ["mediapipe", "bu3dfe", "dlib", "dtu3d", "face_alignment"]:
+    for pname in ["mediapipe"]:
         print(f"Pipeline: {pname}")
         print(f"Current file: {file}")
-        
-        dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=True, render_image_folder="visualization")
+
+        dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=False, render_image_folder="visualization")
         # predict the landmarks
         landmarks = dm.predict_one_file(file)
         np.savetxt((pathToOut / f"{file.stem}_{pname}.txt").as_posix(), landmarks, delimiter=",")

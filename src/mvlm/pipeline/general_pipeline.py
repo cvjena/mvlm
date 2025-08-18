@@ -4,7 +4,8 @@ Copyright (c) Computer Vision Group - FSU Jena
 Author: Tim Büchner
 Email: tim.buechner@uni-jena.de
 """
-__all__ = ['Pipeline']
+
+__all__ = ["Pipeline"]
 
 import abc
 import time
@@ -16,14 +17,15 @@ from PIL import Image
 from mvlm.prediction.predictor2d import Predictor2D
 from mvlm.utils import ObjVTKRenderer3D, Estimator3D
 
+
 class TimeMixin:
     def __init__(self):
         self.start_time = time.time()
         self.end_time = None
-        
+
     def tic(self):
         self.start_time = time.time()
-        
+
     def toc(self):
         self.end_time = time.time()
         return self.end_time - self.start_time
@@ -38,17 +40,17 @@ class TimeMixin:
 class Pipeline(abc.ABC, TimeMixin):
     def __init__(
         self,
-        render_image_stack: bool = False, # if true, the image stack will be saved
-        render_image_folder: Path = None, # if not None, the image stack will be saved in this folder
+        render_image_stack: bool = False,  # if true, the image stack will be saved
+        render_image_folder: Path = None,  # if not None, the image stack will be saved in this folder
     ):
         self.render_image_stack = render_image_stack
         self.render_image_folder = render_image_folder
-        
+
         # loading of the renderer and the predictor
-        self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256))
+        self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256), offscreen=True, n_views=32)
         self.estimator_3d = Estimator3D()
         self.predictor_2d: Predictor2D = None
-        
+
     def get_lm_count(self) -> int:
         return self.predictor_2d.get_lm_count()
 
@@ -59,16 +61,16 @@ class Pipeline(abc.ABC, TimeMixin):
             return None
         self.tic()
         image_stack, transform_stack, pd = self.renderer_3d.multiview_render(file_name)
-        print('Render [Total]: ', self.toc_p())
-        
+        print("Render [Total]: ", self.toc_p())
+
         if self.render_image_stack:
             # TODO Check if the folder exists
             self.visualize_image_stack(image_stack, file_name)
-       
+
         self.tic()
         landmark_stack, valid = self.predictor_2d.predict_landmarks_from_images(image_stack)
-        print('Prediction [Total]: ', self.toc_p())
-        
+        print("Prediction [Total]: ", self.toc_p())
+
         landmark_stack = landmark_stack[:, valid, :]
         transform_stack = transform_stack[valid]
         image_stack = image_stack[valid]
@@ -76,20 +78,20 @@ class Pipeline(abc.ABC, TimeMixin):
         # self.predictor_2d.draw_image_with_landmarks(image_stack[0], landmark_stack[:, 0])
         self.tic()
         lines_s, lines_e = self.estimator_3d.estimate_landmark_lines(image_stack, landmark_stack, transform_stack)
-        print('Landmarks [0] - From Heatmaps: ', self.toc_p())
+        print("Landmarks [0] - From Heatmaps: ", self.toc_p())
 
         self.tic()
         landmarks, error = self.estimator_3d.estimate_landmarks_from_lines(landmark_stack, lines_s, lines_e)
-        print('Landmarks [1] - From View Lines: ', self.toc_p())
+        print("Landmarks [1] - From View Lines: ", self.toc_p())
 
         self.tic()
         landmarks = self.estimator_3d.project_landmarks_to_surface(pd, landmarks)
-        print('Landmarks [2] - Project to Surface: ', self.toc_p())
-        print('Landmarks [Error]: ', f"{error:08.6f}", " mm")
+        print("Landmarks [2] - Project to Surface: ", self.toc_p())
+        print("Landmarks [Error]: ", f"{error:08.6f}", " mm")
 
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
         return landmarks
-    
+
     def visualize_image_stack(self, image_stack: np.ndarray, file_name: str):
         # save the iamge stack flattened such that it close to a square
         n, h, w, c = image_stack.shape
@@ -98,19 +100,19 @@ class Pipeline(abc.ABC, TimeMixin):
         # ncols = n // nrows
         # if nrows * ncols < n:
         #     ncols += 1
-        nrows=2
-        ncols=4
+        nrows = 2
+        ncols = 4
         # create the image
         out_image = np.zeros((nrows * h, ncols * w, 3))
         for i in range(n):
             r = i // ncols
             c = i % ncols
-            out_image[r*h:(r+1)*h, c*w:(c+1)*w, :] = image_stack[i, :, :, 0:3]
+            out_image[r * h : (r + 1) * h, c * w : (c + 1) * w, :] = image_stack[i, :, :, 0:3]
         out_image = np.uint8(out_image * 255)
         out_image = Image.fromarray(out_image)
-        
+
         file_name = Path(file_name)
-        out_image.save(f'{self.render_image_folder}/{file_name.stem}.png')
+        out_image.save(f"{self.render_image_folder}/{file_name.stem}.png")
 
         #  # save the image stack, make the in a 2 by 4 grid
         # n, h, w, c = image_stack.shape
@@ -121,6 +123,6 @@ class Pipeline(abc.ABC, TimeMixin):
         # out_image = np.reshape(out_image, (2*h, 4*w, 3))
         # out_image = np.uint8(out_image * 255)
         # out_image = Image.fromarray(out_image)
-        
+
         # file_name = Path(file_name)
         # out_image.save(f'{self.render_image_folder}/{file_name.stem}_{n}.png')
