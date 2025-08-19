@@ -30,7 +30,7 @@ class RayVisualizerConfig:
     background: tuple[float, float, float] = (1.0, 1.0, 1.0)
     ray_color: tuple[float, float, float] = (0.1, 0.9, 0.1)
     ray_opacity: float = 0.9
-    ray_line_width: float = 3.0
+    ray_line_width: float = 8.0
     landmark_color: tuple[float, float, float] = (0.1, 0.1, 0.9)
     landmark_radius: float = 1.5
     mesh_color: tuple[float, float, float] = (0.85, 0.85, 0.85)
@@ -47,6 +47,8 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         self._screenshot_magnification: int = 2
         self._window: vtk.vtkRenderWindow | None = None
         self._renderer: vtk.vtkRenderer | None = None
+        self._rays_actor: vtk.vtkActor | None = None
+        self._landmarks_actor: vtk.vtkActor | None = None
 
     def set_context(self, window: vtk.vtkRenderWindow, renderer: vtk.vtkRenderer, screenshot_dir: Path | None, mag: int):
         self._window = window
@@ -54,11 +56,30 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         self._screenshot_dir = screenshot_dir
         self._screenshot_magnification = mag
 
+    def register_actors(self, rays_actor: vtk.vtkActor | None, landmarks_actor: vtk.vtkActor | None):
+        """Store references to toggle-able actors."""
+        self._rays_actor = rays_actor
+        self._landmarks_actor = landmarks_actor
+
     def OnKeyPress(self, *_):  # noqa: N802 (VTK naming)
         key = self.GetInteractor().GetKeySym()
         if key.lower() == "s":
             print("[RayVisualizer] 's' detected -> capturing screenshot...")
             self._save_screenshot()
+        elif key.lower() == "t":
+            if self._rays_actor is not None:
+                vis = not bool(self._rays_actor.GetVisibility())
+                self._rays_actor.SetVisibility(vis)
+                if self._renderer:
+                    self._renderer.GetRenderWindow().Render()
+                print(f"[RayVisualizer] Rays visibility -> {vis}")
+        elif key.lower() == "l":
+            if self._landmarks_actor is not None:
+                vis = not bool(self._landmarks_actor.GetVisibility())
+                self._landmarks_actor.SetVisibility(vis)
+                if self._renderer:
+                    self._renderer.GetRenderWindow().Render()
+                print(f"[RayVisualizer] Landmarks visibility -> {vis}")
         elif key.lower() in ("q", "escape"):
             self.GetInteractor().GetRenderWindow().Finalize()
             self.GetInteractor().TerminateApp()
@@ -264,8 +285,11 @@ class RayVisualizer:
         if clip_to_mesh:
             f_ends = self._clip_rays_to_mesh(f_starts, f_ends, mesh)
 
-        ren.AddActor(self._create_mesh_actor(mesh, obj_path=obj_path))
-        ren.AddActor(self._create_rays_actor(f_starts, f_ends))
+        mesh_actor = self._create_mesh_actor(mesh, obj_path=obj_path)
+        ren.AddActor(mesh_actor)
+        rays_actor = self._create_rays_actor(f_starts, f_ends)
+        ren.AddActor(rays_actor)
+        landmarks_actor = None
         if landmarks is not None:
             # Reduce landmarks if subset used
             if landmark_indices is not None:
@@ -275,7 +299,8 @@ class RayVisualizer:
                     landmarks_to_show = landmarks
             else:
                 landmarks_to_show = landmarks
-            ren.AddActor(self._create_landmark_actor(landmarks_to_show))
+            landmarks_actor = self._create_landmark_actor(landmarks_to_show)
+            ren.AddActor(landmarks_actor)
 
         # Outline (optional for scale reference)
         bounds = mesh.GetBounds()
@@ -306,6 +331,8 @@ class RayVisualizer:
         # --- Camera setup & initial render ---
         ren.ResetCamera()
         rw.Render()
-        print("[RayVisualizer] Starting interactive session. Press 's' to save screenshot, 'q' to quit.")
+        print("[RayVisualizer] Starting interactive session. Keys: 's'=screenshot, 't'=toggle rays, 'l'=toggle landmarks, 'q'=quit.")
         iren.Initialize()
+        # Register actors for toggling after Initialize (actors already added)
+        style.register_actors(rays_actor, landmarks_actor)
         iren.Start()
