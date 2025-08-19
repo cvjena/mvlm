@@ -51,7 +51,8 @@ class ObjVTKRenderer3D:
 
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
-        self.ren.SetBackground(0.78, 0.78, 0.78)
+        self.ren.SetBackground(1.0, 1.0, 1.0)
+        # self.ren.SetBackground(0.78, 0.78, 0.78)
         self.ren.GetActiveCamera().SetPosition(0, 0, 1)
         self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
         self.ren.GetActiveCamera().SetViewUp(0, 1, 0)

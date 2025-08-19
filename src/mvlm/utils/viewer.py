@@ -11,7 +11,10 @@ class VTKViewer:
         self,
         filename: str,
         landmarks: np.ndarray | None = None,
+        pname: None | str = None,
     ):
+        self.pname = pname
+
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
         self.ren.SetBackground(1, 1, 1)
@@ -129,7 +132,10 @@ class VTKViewer:
         append.Update()
         return append.GetOutput()
 
-    def take_screenshot(self, filename="screenshot.png"):
+    def take_screenshot(self, filename: None | str = None):
+        if filename is None:
+            filename = f"screenshot_{self.pname}.png"
+
         window_to_image_filter = vtk.vtkWindowToImageFilter()
         window_to_image_filter.SetInput(self.ren_win)
         window_to_image_filter.Update()
