@@ -87,7 +87,7 @@ class Pipeline(abc.ABC, TimeMixin):
             self.visualize_image_stack(image_stack, file_name)
 
         self.tic()
-        landmark_stack, valid = self.predictor_2d.predict_landmarks_from_images(image_stack)
+        landmark_stack, valid = self.predictor_2d.predict_landmarks_from_images(image_stack)  # type: ignore
         print("Prediction [Total]: ", self.toc_p())
 
         landmark_stack = landmark_stack[:, valid, :]
@@ -121,7 +121,7 @@ class Pipeline(abc.ABC, TimeMixin):
                     lines_e,
                     landmarks=landmarks,
                     screenshot_dir=screenshot_dir,
-                    landmark_indices=landmark_indices,
+                    landmark_indices=[-1],  # 4 -> mediapipe nose tip
                     view_indices=view_indices,
                     obj_path=file_name if file_name.suffix == ".obj" else None,
                     clip_to_mesh=clip_rays_to_mesh,

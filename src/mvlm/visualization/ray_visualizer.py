@@ -28,10 +28,11 @@ from mvlm.utils.utils3d import obj_to_actor
 class RayVisualizerConfig:
     window_size: tuple[int, int] = (900, 900)
     background: tuple[float, float, float] = (1.0, 1.0, 1.0)
-    ray_color: tuple[float, float, float] = (0.1, 0.4, 0.9)
+    ray_color: tuple[float, float, float] = (0.1, 0.9, 0.1)
     ray_opacity: float = 0.9
-    landmark_color: tuple[float, float, float] = (0.9, 0.1, 0.1)
-    landmark_radius: float = 2.0
+    ray_line_width: float = 3.0
+    landmark_color: tuple[float, float, float] = (0.1, 0.1, 0.9)
+    landmark_radius: float = 1.5
     mesh_color: tuple[float, float, float] = (0.85, 0.85, 0.85)
     mesh_edge_color: tuple[float, float, float] = (0.3, 0.3, 0.3)
     mesh_opacity: float = 1.0
@@ -53,7 +54,7 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         self._screenshot_dir = screenshot_dir
         self._screenshot_magnification = mag
 
-    def OnKeyPress(self):  # noqa: N802 (VTK naming)
+    def OnKeyPress(self, *_):  # noqa: N802 (VTK naming)
         key = self.GetInteractor().GetKeySym()
         if key.lower() == "s":
             print("[RayVisualizer] 's' detected -> capturing screenshot...")
@@ -84,7 +85,7 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             fname = f"rayviz_{ts}.png"
         out_file = self._screenshot_dir / fname
 
-        # Primary approach: WindowToImageFilter
+        # Primary approach: WindowToImageFilter (RGB only – no alpha channel)
         w2if = vtk.vtkWindowToImageFilter()
         w2if.SetInput(self._window)
         # Support both single int or (x,y) scaling depending on VTK version
@@ -92,7 +93,7 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             w2if.SetScale(self._screenshot_magnification, self._screenshot_magnification)
         except TypeError:  # older signature
             w2if.SetScale(self._screenshot_magnification)
-        w2if.SetInputBufferTypeToRGBA()
+        w2if.SetInputBufferTypeToRGB()
         # For double-buffered windows: capture back buffer (front may be empty until swap)
         try:
             w2if.ReadFrontBufferOff()
@@ -100,11 +101,10 @@ class _KeyPressInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             pass
         w2if.Update()
 
-        # Validate output dimensions; if zero, retry using RGB + front buffer
+        # Validate output dimensions; if zero, retry using front buffer explicitly
         dims = w2if.GetOutput().GetDimensions()
         if dims[0] == 0 or dims[1] == 0:
-            print("[RayVisualizer] First capture empty, retrying with RGB / front buffer...")
-            w2if.SetInputBufferTypeToRGB()
+            print("[RayVisualizer] First capture empty, retrying with front buffer...")
             try:
                 w2if.ReadFrontBufferOn()
             except AttributeError:
@@ -200,7 +200,8 @@ class RayVisualizer:
         actor.SetMapper(mapper)
         actor.GetProperty().SetColor(*self.config.ray_color)
         actor.GetProperty().SetOpacity(self.config.ray_opacity)
-        actor.GetProperty().SetLineWidth(1.2)
+
+        actor.GetProperty().SetLineWidth(self.config.ray_line_width)
         return actor
 
     def _create_landmark_actor(self, landmarks: np.ndarray) -> vtk.vtkActor:
@@ -300,6 +301,7 @@ class RayVisualizer:
         style = _KeyPressInteractorStyle()
         style.set_context(rw, ren, screenshot_dir, self.config.screenshot_magnification)
         iren.SetInteractorStyle(style)
+        iren.AddObserver("KeyPressEvent", style.OnKeyPress)  # type: ignore
 
         # --- Camera setup & initial render ---
         ren.ResetCamera()
