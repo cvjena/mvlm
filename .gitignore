@@ -123,4 +123,5 @@ data_test/
 visualization/
 src/mvlm/prediction/models/*.pth
 src/mvlm/prediction/models/*.dat
+!src/mvlm/visualization/
 temp/

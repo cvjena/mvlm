@@ -14,7 +14,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from mvlm.prediction.predictor2d import Predictor2D
 from mvlm.utils import Estimator3D, ObjVTKRenderer3D
 
 
@@ -40,19 +39,24 @@ class TimeMixin:
 class Pipeline(abc.ABC, TimeMixin):
     def __init__(
         self,
-        render_image_stack: bool = False,  # if true, the image stack will be saved
-        offscreen: bool = True,  # if true, the renderer will render offscreen
-        n_views: int = 8,  # number of views to render
-        render_image_folder: Path | None = None,  # if not None, the image stack will be saved in this folder
+        render_image_stack: bool = False,
+        offscreen: bool = True,
+        n_views: int = 8,
+        render_image_folder: Path | None = None,
+        visualize_rays: bool = False,
+        screenshot_folder: Path | None = None,
     ):
+        # configuration
         self.render_image_stack = render_image_stack
         self.render_image_folder = render_image_folder
         self.n_views = n_views
+        self.visualize_rays = visualize_rays
+        self.screenshot_folder = screenshot_folder
 
-        # loading of the renderer and the predictor
+        # components
         self.renderer_3d = ObjVTKRenderer3D(image_size=(256, 256), offscreen=offscreen, n_views=n_views)
         self.estimator_3d = Estimator3D()
-        self.predictor_2d: Predictor2D | None = None
+        self.predictor_2d = None  # will be assigned externally
 
     def get_lm_count(self) -> int:
         if self.predictor_2d is None:
@@ -60,7 +64,13 @@ class Pipeline(abc.ABC, TimeMixin):
 
         return self.predictor_2d.get_lm_count()
 
-    def predict_one_file(self, file_name: Path):
+    def predict_one_file(
+        self,
+        file_name: Path,
+        landmark_indices: list[int] | None = None,
+        view_indices: list[int] | None = None,
+        clip_rays_to_mesh: bool = True,
+    ):
         if self.predictor_2d is None:
             raise ValueError("Predictor2D is not initialized.")
 
@@ -99,6 +109,25 @@ class Pipeline(abc.ABC, TimeMixin):
         print("Landmarks [Error]: ", f"{error:08.6f}", " mm")
 
         print("Landmarks 3D Total: ", self.p_time(time.time() - full_s))
+        if self.visualize_rays:
+            try:
+                from mvlm.visualization.ray_visualizer import RayVisualizer, RayVisualizerConfig
+
+                viz = RayVisualizer(RayVisualizerConfig())
+                screenshot_dir = self.screenshot_folder or (Path.cwd() / "visualization" / "ray_screenshots")
+                viz.show(
+                    pd,
+                    lines_s,
+                    lines_e,
+                    landmarks=landmarks,
+                    screenshot_dir=screenshot_dir,
+                    landmark_indices=landmark_indices,
+                    view_indices=view_indices,
+                    obj_path=file_name if file_name.suffix == ".obj" else None,
+                    clip_to_mesh=clip_rays_to_mesh,
+                )
+            except Exception as e:  # noqa: BLE001
+                print(f"[Pipeline] Ray visualization failed: {e}")
         return landmarks
 
     def visualize_image_stack(self, image_stack: np.ndarray, file_name: Path):
