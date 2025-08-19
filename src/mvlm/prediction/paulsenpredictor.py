@@ -40,6 +40,12 @@ models_urls_full = {
 
 
 class PaulsenModel(Predictor2D):
+    """
+    BUG: Please note that these models work really well withing the 3D rendering pipeline, but fail quite stronly if used on loaded images.
+         This indicates that somewhere the models cannot handle compression artifacts or other image quality issues, and are quite overfit on this data.
+         Not a problem really for us here, but should be noted for future work.
+    """
+
     def __init__(
         self,
         model_type: str,
