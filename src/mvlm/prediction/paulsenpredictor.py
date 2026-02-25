@@ -77,7 +77,12 @@ class PaulsenModel(Predictor2D):
             n_gpu_use = n_gpu
         if n_gpu_use > 0 and torch.cuda.is_available() and (torch.cuda.get_device_capability()[0] * 10 + torch.cuda.get_device_capability()[1] < 35):
             n_gpu_use = 0
-        device = torch.device("cuda:0" if n_gpu_use > 0 else "cpu")
+
+        if not torch.cuda.is_available():
+            print("No GPU available, using CPU.")
+            n_gpu_use = 0
+
+        device = torch.device("cuda" if n_gpu_use > 0 else "cpu")
         list_ids = list(range(n_gpu_use))
         return device, list_ids
 
