@@ -13,8 +13,7 @@ We support the following landmark predictors by default (custom ones can be adde
 * DTU3D
 * FaceAlignment
 
-![Overview](teaser.jpg)
-"Head scan 09 (photogrammetry)" (<https://skfb.ly/oxGZG>) by yaro.pro is licensed under Creative Commons Attribution (<http://creativecommons.org/licenses/by/4.0/>).
+![Overview](teaser.png)
 
 For more examples, please see the papers!
 
