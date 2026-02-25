@@ -38,13 +38,14 @@ if len(objFiles) == 0:
     print("Given path does not contain any obj files")
     sys.exit(1)
 
-for i, file in enumerate(objFiles):
-    # for pname in ["mediapipe", "bu3dfe", "dlib", "dtu3d", "face_alignment"]:
-    for pname in ["mediapipe"]:
-        print(f"Pipeline: {pname}")
+for pname in ["mediapipe"]:
+    print(f"Pipeline: {pname}")
+    dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=args.visualize_method, n_views=args.n_views)
+    for i, file in enumerate(objFiles):
+        # for pname in ["bu3dfe"]:
+        # for pname in ["mediapipe", "bu3dfe", "dlib", "dtu3d", "face_alignment"]:
         print(f"Current file: {file}")
 
-        dm = mvlm.pipeline.create_pipeline(pname, render_image_stack=args.visualize_method, n_views=args.n_views)
         # predict the landmarks
         landmarks = dm.predict_one_file(file)
 
@@ -57,4 +58,6 @@ for i, file in enumerate(objFiles):
         if not args.visualize:
             continue
         # visualize the mesh
-        mvlm.utils.VTKViewer(file.as_posix(), landmarks)
+        mvlm.utils.VTKViewer(file.as_posix(), landmarks, pname=pname, save=True)
+
+    break

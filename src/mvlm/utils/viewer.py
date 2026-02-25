@@ -2,6 +2,7 @@ __all__ = ["VTKViewer"]
 import vtk
 import numpy as np
 import math
+from pathlib import Path
 
 from .utils3d import obj_to_actor
 
@@ -11,9 +12,11 @@ class VTKViewer:
         self,
         filename: str,
         landmarks: np.ndarray | None = None,
-        pname: None | str = None,
-    ):
+        pname: str | None = None,
+        save: bool = False,
+    ) -> None:
         self.pname = pname
+        self.filename = Path(filename)
 
         # Initialize Camera
         self.ren = vtk.vtkRenderer()
@@ -22,7 +25,7 @@ class VTKViewer:
         # Initialize RenderWindow
         self.ren_win = vtk.vtkRenderWindow()
         self.ren_win.SetSize(1024, 1024)
-        self.ren_win.SetOffScreenRendering(0)
+        self.ren_win.SetOffScreenRendering(1 if save else 0)
         self.ren_win.AddRenderer(self.ren)
 
         actor, pd = obj_to_actor(filename)
@@ -68,11 +71,11 @@ class VTKViewer:
             self.landmarks_actor.GetProperty().SetColor(0, 0, 1)
             self.ren.AddActor(self.landmarks_actor)
 
-        self.ren.ResetCamera()
-        self.ren.GetActiveCamera().SetPosition(0, 0, 1)
         self.ren.GetActiveCamera().SetFocalPoint(0, 0, 0)
         self.ren.GetActiveCamera().SetViewUp(0, 1, 0)
-        # self.ren.GetActiveCamera().SetParallelProjection(1)
+        self.ren.ResetCamera()
+        self.ren.GetActiveCamera().Zoom(1.4)
+        self.ren.ResetCameraClippingRange()
 
         self.iren = vtk.vtkRenderWindowInteractor()
         self.iren.SetRenderWindow(self.ren_win)
@@ -83,9 +86,14 @@ class VTKViewer:
         self.setup_hotkeys()
 
         self.ren_win.Render()
-        self.iren.Start()
+        if save:
+            out_path = Path("visualization") / (self.filename.stem + ".png")
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            self.take_screenshot(str(out_path))
+        else:
+            self.iren.Start()
 
-    def get_landmark_bounds(self, lms):
+    def get_landmark_bounds(self, lms: np.ndarray) -> tuple[float, float, float, float, float, float]:
         x_min = lms[0][0]
         x_max = x_min
         y_min = lms[0][1]
@@ -106,13 +114,13 @@ class VTKViewer:
 
         return x_min, x_max, y_min, y_max, z_min, z_max
 
-    def get_landmarks_bounding_box_diagonal_length(self, lms):
+    def get_landmarks_bounding_box_diagonal_length(self, lms: np.ndarray) -> float:
         x_min, x_max, y_min, y_max, z_min, z_max = self.get_landmark_bounds(lms)
 
         diag_len = math.sqrt((x_max - x_min) * (x_max - x_min) + (y_max - y_min) * (y_max - y_min) + (z_max - z_min) * (z_max - z_min))
         return diag_len
 
-    def get_landmarks_as_spheres(self, lms):
+    def get_landmarks_as_spheres(self, lms: np.ndarray) -> vtk.vtkPolyData:
         diag_len = self.get_landmarks_bounding_box_diagonal_length(lms)
         # sphere radius is 0.8% of bounding box diagonal
         sphere_size = diag_len * 0.008
@@ -132,7 +140,7 @@ class VTKViewer:
         append.Update()
         return append.GetOutput()
 
-    def take_screenshot(self, filename: None | str = None):
+    def take_screenshot(self, filename: str | None = None) -> None:
         if filename is None:
             filename = f"screenshot_{self.pname}.png"
 
@@ -145,8 +153,8 @@ class VTKViewer:
         writer.SetInputConnection(window_to_image_filter.GetOutputPort())
         writer.Write()
 
-    def setup_hotkeys(self):
-        def keypress_callback(obj, event):
+    def setup_hotkeys(self) -> None:
+        def keypress_callback(obj: vtk.vtkRenderWindowInteractor, event: str) -> None:
             key = obj.GetKeySym()
             if key == "s":  # Press 's' to take a screenshot
                 self.take_screenshot()

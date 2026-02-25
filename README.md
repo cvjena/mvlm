@@ -14,18 +14,38 @@ We support the following landmark predictors by default (custom ones can be adde
 * FaceAlignment
 
 ![Overview](teaser.jpg)
-"Head scan 09 (photogrammetry)" (https://skfb.ly/oxGZG) by yaro.pro is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+"Head scan 09 (photogrammetry)" (<https://skfb.ly/oxGZG>) by yaro.pro is licensed under Creative Commons Attribution (<http://creativecommons.org/licenses/by/4.0/>).
 
 For more examples, please see the papers!
+
+## Citation
+
+If you use the assets from this project, please cite the following paper:
+
+```bibtext
+@inproceedings{buechner2025electromyography,
+doi = {10.1109/CVPR52734.2025.00029},
+year = {2025},
+booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+title = {Electromyography-Informed Facial Expression Reconstruction for Physiological-Based Synthesis and Analysis},
+author = {Tim Büchner and Christoph Anders and Orlando Guntinas-Lichius and Joachim Denzler},
+}
+```
 
 ## Citing
 
 As we base our work on the original Deep-MVLM, we kindly ask you to cite the original paper and ours if you use this tool in your research:
 
 ```bibtex
---One More Upcoming--
+@article{buechner2024assessing,
+  doi = {10.1007/s00138-024-01616-1},
+  year = {2025},
+  title = {Assessing 3D Volumetric Asymmetry in Facial Palsy Patients via Advanced Multi-view Landmarks and Radial Curves},
+  journal = {Machine Vision and Applications},
+  author = {Tim Büchner and Sven Sickert and Gerd F. Volk and Orlando Guntinas-Lichius and Joachim Denzler},
+}
 
-@InProceedings{10.1007/978-3-031-47969-4_10,
+@InProceedings{buechner2023facestovolumes,
   title="From Faces to Volumes - Measuring Volumetric Asymmetry in 3D Facial Palsy Scans",
   author="B{\"u}chner, Tim and Sickert, Sven and Volk, Gerd Fabian and Guntinas-Lichius, Orlando and Denzler, Joachim",
   booktitle="Advances in Visual Computing",

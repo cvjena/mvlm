@@ -125,3 +125,7 @@ src/mvlm/prediction/models/*.pth
 src/mvlm/prediction/models/*.dat
 !src/mvlm/visualization/
 temp/
+
+assets/Sensor-Emotion/
+assets/Normal-Schaede/
+output/
