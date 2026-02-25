@@ -87,7 +87,9 @@ class VTKViewer:
 
         self.ren_win.Render()
         if save:
-            out_path = Path("visualization") / (self.filename.stem + ".png")
+            stem = self.filename.stem
+            suffix = f"_{self.pname}" if self.pname else ""
+            out_path = Path("visualization") / f"{stem}{suffix}.png"
             out_path.parent.mkdir(parents=True, exist_ok=True)
             self.take_screenshot(str(out_path))
         else:
